@@ -3,23 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>TikTok読み上げ君</title>
-    <script src="https://unpkg.com/socket.io-client@4.5.4/dist/socket.io.min.js"></script>
+    <title>TikTokプロ読み上げ君</title>
     <style>
-        body { background:#000; color:#fff; text-align:center; padding-top:30px; font-family:sans-serif; }
-        input { padding:15px; font-size:16px; width:80%; margin-bottom:15px; border-radius:10px; border:none; color:#000; }
-        button { padding:20px; font-size:18px; background:#ff0050; color:#fff; border:none; border-radius:10px; width:80%; font-weight:bold; }
-        #status { margin-top:20px; color:#ffdd00; font-size:14px; }
-        #log { margin-top:20px; color:#ccc; font-size:12px; padding:10px; height:150px; overflow-y:auto; border-top:1px solid #333; }
+        body { background:#000; color:#fff; text-align:center; padding-top:20px; font-family:sans-serif; margin:0; }
+        .container { padding: 20px; }
+        input { padding:15px; font-size:16px; width:80%; margin-bottom:10px; border-radius:10px; border:none; color:#000; }
+        button { padding:15px; font-size:18px; background:#ff0050; color:#fff; border:none; border-radius:10px; width:85%; font-weight:bold; cursor:pointer; }
+        #status { margin:15px 0; color:#ffdd00; font-size:14px; font-weight:bold; }
+        #log { background:#111; margin:10px; padding:15px; height:300px; overflow-y:auto; border-radius:10px; border:1px solid #333; text-align:left; font-size:13px; }
+        .event-gift { color: #ff0050; font-weight: bold; }
+        .event-follow { color: #00f2ea; }
     </style>
 </head>
 <body>
-    <h2>TikTok読み上げ君</h2>
-    <input type="text" id="idInput" placeholder="TikTok IDを入力 (@抜き)">
-    <br>
-    <button id="s">読み上げを開始する</button>
-    <div id="status">停止中</div>
-    <div id="log">ここに接続ログが表示されます</div>
+    <div class="container">
+        <h2>TikTok読み上げ Pro</h2>
+        <input type="text" id="idInput" placeholder="TikTok IDを入力 (@抜き)">
+        <br>
+        <button id="s">読み上げを開始する</button>
+        <div id="status">停止中</div>
+        <div id="log">ここにイベント（ギフトやコメント）が表示されます</div>
+    </div>
 
     <script type="module">
         import { WebcastPushConnection } from 'https://cdn.jsdelivr.net/npm/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js';
@@ -29,42 +33,67 @@
         const log = document.getElementById('log');
         const idInput = document.getElementById('idInput');
 
-        function addLog(msg) {
-            const p = document.createElement('p');
+        function addLog(msg, className = '') {
+            const p = document.createElement('div');
+            p.className = className;
             p.innerText = msg;
             log.prepend(p);
+        }
+
+        function speak(text) {
+            const uttr = new SpeechSynthesisUtterance(text);
+            uttr.lang = "ja-JP";
+            uttr.rate = 1.2; // 少し速めに設定
+            window.speechSynthesis.speak(uttr);
         }
 
         btn.onclick = () => {
             const tiktokId = idInput.value.trim();
             if (!tiktokId) { alert("IDを入力してください"); return; }
 
-            // 音声テスト
-            const m = new SpeechSynthesisUtterance("接続を開始します");
-            m.lang = "ja-JP";
-            window.speechSynthesis.speak(m);
-
+            speak("プロモードで接続を開始します。");
             status.innerText = "接続中...";
-            addLog("ライブ「" + tiktokId + "」に接続を試みています...");
-
+            
             const con = new WebcastPushConnection(tiktokId);
 
             con.connect().then(state => {
-                status.innerText = "✅ 接続成功！配信監視中";
+                status.innerText = "✅ プロモード接続中！";
                 status.style.color = "#00ff00";
-                addLog("接続成功！コメントを待っています...");
+                addLog("システム稼働中...");
             }).catch(err => {
-                status.innerText = "❌ 接続エラー";
-                status.style.color = "#ff0000";
-                addLog("エラー原因: " + err);
+                status.innerText = "❌ エラー";
+                addLog("エラー: " + err);
             });
 
+            // 💬 コメント読み上げ
             con.on('chat', d => {
-                addLog(d.nickname + ": " + d.comment);
-                const uttr = new SpeechSynthesisUtterance(d.nickname + "さん " + d.comment);
-                uttr.lang = "ja-JP";
-                uttr.rate = 1.0;
-                window.speechSynthesis.speak(uttr);
+                addLog(`${d.nickname}: ${d.comment}`);
+                speak(`${d.nickname}さん、${d.comment}`);
+            });
+
+            // 🎁 ギフト検知
+            con.on('gift', d => {
+                const msg = `感謝！${d.nickname}さんが${d.giftName}を贈りました！`;
+                addLog(msg, 'event-gift');
+                speak(msg);
+            });
+
+            // ➕ フォロー検知
+            con.on('follow', d => {
+                const msg = `${d.nickname}さんがフォローしてくれました！`;
+                addLog(msg, 'event-follow');
+                speak(msg);
+            });
+
+            // 📢 シェア検知
+            con.on('share', d => {
+                speak(`${d.nickname}さんがライブをシェアしました！ありがとう！`);
+            });
+
+            // 👋 入室通知（視聴者が増えたとき）
+            con.on('member', d => {
+                addLog(`${d.nickname}さんが入室しました`);
+                // 入室は人数が多いと喋りすぎるので、ログ表示のみにするのが一般的です
             });
         };
     </script>
