@@ -1,0 +1,45 @@
+
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>TikTok TTS</title>
+    <style>
+        body { background:#000; color:#fff; text-align:center; padding-top:50px; font-family:sans-serif; }
+        button { padding:20px; font-size:20px; background:#ff0050; color:#fff; border:none; border-radius:10px; }
+    </style>
+</head>
+<body>
+    <h2>TikTok読み上げ君（無料版）</h2>
+    <button id="s">読み上げを開始する</button>
+    <div id="l" style="margin-top:20px; color:#ccc;"></div>
+
+    <script type="module">
+        import { WebcastPushConnection } from 'https://cdn.skypack.dev/tiktok-live-connect';
+        const btn = document.getElementById('s');
+        const log = document.getElementById('l');
+
+        btn.onclick = () => {
+            const m = new SpeechSynthesisUtterance("準備完了。接続します");
+            window.speechSynthesis.speak(m);
+            btn.style.display = 'none';
+
+            // あなたのTikTok ID
+            const con = new WebcastPushConnection("mac.d.onald.no1");
+
+            con.connect().then(() => {
+                log.innerText = "接続成功！コメントを待っています...";
+            }).catch(e => {
+                log.innerText = "エラー: " + e;
+            });
+
+            con.on('chat', d => {
+                log.innerText = d.nickname + ": " + d.comment;
+                const uttr = new SpeechSynthesisUtterance(d.nickname + "さん、" + d.comment);
+                uttr.lang = "ja-JP";
+                window.speechSynthesis.speak(uttr);
+            });
+        };
+    </script>
+</body>
+</html>
