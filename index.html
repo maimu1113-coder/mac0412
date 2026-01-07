@@ -1,46 +1,69 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>TikTok TTS</title>
+    <title>TikTok読み上げ君</title>
+    <script src="https://unpkg.com/socket.io-client@4.5.4/dist/socket.io.min.js"></script>
     <style>
-        body { background:#000; color:#fff; text-align:center; padding-top:50px; font-family:sans-serif; }
-        input { padding:15px; font-size:16px; width:80%; margin-bottom:20px; border-radius:10px; border:none; color:#000; }
-        button { padding:20px; font-size:20px; background:#ff0050; color:#fff; border:none; border-radius:10px; width:80%; }
-        #l { margin-top:20px; color:#ccc; font-size:14px; padding:10px; }
+        body { background:#000; color:#fff; text-align:center; padding-top:30px; font-family:sans-serif; }
+        input { padding:15px; font-size:16px; width:80%; margin-bottom:15px; border-radius:10px; border:none; color:#000; }
+        button { padding:20px; font-size:18px; background:#ff0050; color:#fff; border:none; border-radius:10px; width:80%; font-weight:bold; }
+        #status { margin-top:20px; color:#ffdd00; font-size:14px; }
+        #log { margin-top:20px; color:#ccc; font-size:12px; padding:10px; height:150px; overflow-y:auto; border-top:1px solid #333; }
     </style>
 </head>
 <body>
     <h2>TikTok読み上げ君</h2>
-    <input type="text" id="idInput" placeholder="TikTok IDを入力（@抜き）">
+    <input type="text" id="idInput" placeholder="TikTok IDを入力 (@抜き)">
     <br>
     <button id="s">読み上げを開始する</button>
-    <div id="l"></div>
+    <div id="status">停止中</div>
+    <div id="log">ここに接続ログが表示されます</div>
+
     <script type="module">
-        import { WebcastPushConnection } from 'https://cdn.skypack.dev/tiktok-live-connect';
+        import { WebcastPushConnection } from 'https://cdn.jsdelivr.net/npm/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js';
+
         const btn = document.getElementById('s');
-        const log = document.getElementById('l');
+        const status = document.getElementById('status');
+        const log = document.getElementById('log');
         const idInput = document.getElementById('idInput');
+
+        function addLog(msg) {
+            const p = document.createElement('p');
+            p.innerText = msg;
+            log.prepend(p);
+        }
+
         btn.onclick = () => {
             const tiktokId = idInput.value.trim();
             if (!tiktokId) { alert("IDを入力してください"); return; }
-            const m = new SpeechSynthesisUtterance("準備完了。接続します");
+
+            // 音声テスト
+            const m = new SpeechSynthesisUtterance("接続を開始します");
+            m.lang = "ja-JP";
             window.speechSynthesis.speak(m);
-            idInput.style.display = 'none';
-            btn.style.display = 'none';
+
+            status.innerText = "接続中...";
+            addLog("ライブ「" + tiktokId + "」に接続を試みています...");
+
             const con = new WebcastPushConnection(tiktokId);
-            con.connect().then(() => {
-                log.innerText = "接続成功！ライブ「" + tiktokId + "」を監視中...";
-            }).catch(e => {
-                log.innerText = "エラー: ライブが開始されていないか、IDが間違っています。";
-                idInput.style.display = 'block';
-                btn.style.display = 'block';
+
+            con.connect().then(state => {
+                status.innerText = "✅ 接続成功！配信監視中";
+                status.style.color = "#00ff00";
+                addLog("接続成功！コメントを待っています...");
+            }).catch(err => {
+                status.innerText = "❌ 接続エラー";
+                status.style.color = "#ff0000";
+                addLog("エラー原因: " + err);
             });
+
             con.on('chat', d => {
-                log.innerText = d.nickname + ": " + d.comment;
-                const uttr = new SpeechSynthesisUtterance(d.nickname + "さん、" + d.comment);
+                addLog(d.nickname + ": " + d.comment);
+                const uttr = new SpeechSynthesisUtterance(d.nickname + "さん " + d.comment);
                 uttr.lang = "ja-JP";
+                uttr.rate = 1.0;
                 window.speechSynthesis.speak(uttr);
             });
         };
