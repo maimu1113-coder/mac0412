@@ -1,5 +1,53 @@
-
+<!DOCTYPE html>
 <html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>TikTok TTS</title>
+    <style>
+        body { background:#000; color:#fff; text-align:center; padding-top:50px; font-family:sans-serif; }
+        input { padding:15px; font-size:16px; width:80%; margin-bottom:20px; border-radius:10px; border:none; color:#000; }
+        button { padding:20px; font-size:20px; background:#ff0050; color:#fff; border:none; border-radius:10px; width:80%; }
+        #l { margin-top:20px; color:#ccc; font-size:14px; padding:10px; }
+    </style>
+</head>
+<body>
+    <h2>TikTok読み上げ君</h2>
+    <input type="text" id="idInput" placeholder="TikTok IDを入力（@抜き）">
+    <br>
+    <button id="s">読み上げを開始する</button>
+    <div id="l"></div>
+    <script type="module">
+        import { WebcastPushConnection } from 'https://cdn.skypack.dev/tiktok-live-connect';
+        const btn = document.getElementById('s');
+        const log = document.getElementById('l');
+        const idInput = document.getElementById('idInput');
+        btn.onclick = () => {
+            const tiktokId = idInput.value.trim();
+            if (!tiktokId) { alert("IDを入力してください"); return; }
+            const m = new SpeechSynthesisUtterance("準備完了。接続します");
+            window.speechSynthesis.speak(m);
+            idInput.style.display = 'none';
+            btn.style.display = 'none';
+            const con = new WebcastPushConnection(tiktokId);
+            con.connect().then(() => {
+                log.innerText = "接続成功！ライブ「" + tiktokId + "」を監視中...";
+            }).catch(e => {
+                log.innerText = "エラー: ライブが開始されていないか、IDが間違っています。";
+                idInput.style.display = 'block';
+                btn.style.display = 'block';
+            });
+            con.on('chat', d => {
+                log.innerText = d.nickname + ": " + d.comment;
+                const uttr = new SpeechSynthesisUtterance(d.nickname + "さん、" + d.comment);
+                uttr.lang = "ja-JP";
+                window.speechSynthesis.speak(uttr);
+            });
+        };
+    </script>
+</body>
+</html>
+html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
