@@ -4,27 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
     <title>Mac tok PRO</title>
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Mac tok">
     <link rel="apple-touch-icon" href="https://via.placeholder.com/180/ff0050/ffffff?text=MT">
 
     <style>
         :root { --primary: #ff0050; --bg: #0f1115; --card: #1c2128; --border: #2f3338; }
         body { background: var(--bg); color: #fff; font-family: -apple-system, sans-serif; margin: 0; }
         
-        /* ログイン画面（起動時に表示） */
+        /* ログイン */
         #login-screen { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        .login-card { background: var(--card); padding: 40px 25px; border-radius: 24px; width: 100%; max-width: 320px; border: 1px solid var(--border); text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .login-card { background: var(--card); padding: 40px 25px; border-radius: 24px; width: 100%; max-width: 320px; border: 1px solid var(--border); text-align: center; }
         .logo-text { font-size: 32px; font-weight: 900; margin-bottom: 20px; background: linear-gradient(45deg, #ff0050, #00f2ea); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        input { width: 100%; padding: 15px; background: #000; border: 1px solid var(--border); border-radius: 12px; color: #fff; font-size: 16px; box-sizing: border-box; text-align: center; }
+        .btn { width: 100%; padding: 18px; background: var(--primary); border: none; border-radius: 14px; color: #fff; font-weight: bold; font-size: 16px; margin-top: 20px; cursor: pointer; }
 
-        input[type="text"] { width: 100%; padding: 15px; background: #000; border: 1px solid var(--border); border-radius: 12px; color: #fff; font-size: 16px; box-sizing: border-box; text-align: center; }
-        .btn-login { width: 100%; padding: 18px; background: var(--primary); border: none; border-radius: 14px; color: #fff; font-weight: bold; font-size: 16px; margin-top: 20px; cursor: pointer; }
-
-        /* メインアプリ表示 */
+        /* アプリ本体 */
         #app { display: none; }
         .header { background: var(--card); border-bottom: 1px solid var(--border); padding-top: env(safe-area-inset-top); }
+        
+        /* ユーザー情報エリア */
+        .user-info { display: flex; align-items: center; gap: 12px; padding: 15px; background: #16191e; }
+        #user-avatar { width: 45px; height: 45px; border-radius: 50%; border: 2px solid var(--primary); background: #333; object-fit: cover; }
+        .user-name-box { display: flex; flex-direction: column; }
+        #display-name { font-weight: bold; font-size: 16px; }
+        #display-id { font-size: 12px; color: #888; }
+
         .nav-tabs { display: flex; border-top: 1px solid var(--border); }
         .tab { flex: 1; text-align: center; padding: 15px; font-size: 13px; color: #888; }
         .tab.active { color: #fff; border-bottom: 3px solid var(--primary); font-weight: bold; }
@@ -32,7 +37,7 @@
         .page { padding: 20px; display: none; }
         .page.active { display: block; }
         .card { background: var(--card); border-radius: 16px; padding: 20px; border: 1px solid var(--border); margin-bottom: 15px; }
-        #log { background: #000; height: 200px; border-radius: 10px; padding: 10px; font-size: 11px; color: #0f0; overflow-y: auto; font-family: monospace; border: 1px solid var(--border); }
+        #log { background: #000; height: 250px; border-radius: 10px; padding: 12px; font-size: 11px; color: #0f0; overflow-y: auto; font-family: monospace; border: 1px solid var(--border); line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -41,15 +46,18 @@
         <div class="login-card">
             <div class="logo-text">Mac tok</div>
             <input type="text" id="uid" placeholder="TikTok ID (@なし)">
-            <button class="btn-login" onclick="login()">ログイン</button>
+            <button class="btn" onclick="login()">ログイン</button>
         </div>
     </div>
 
     <div id="app">
         <div class="header">
-            <div style="padding: 15px; font-weight: bold; font-size: 18px; display: flex; align-items: center; gap: 10px;">
-                <div style="width:30px; height:30px; background:var(--primary); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10px;">MT</div>
-                Mac tok PRO
+            <div class="user-info">
+                <img id="user-avatar" src="https://www.tiktok.com/favicon.ico" alt="avatar">
+                <div class="user-name-box">
+                    <span id="display-name">接続待機中...</span>
+                    <span id="display-id">@---</span>
+                </div>
             </div>
             <div class="nav-tabs">
                 <div class="tab active" onclick="tab('home')">ホーム</div>
@@ -58,9 +66,9 @@
         </div>
         <div id="home" class="page active">
             <div class="card">
-                <button class="btn-login" style="margin:0;" onclick="connect()">接続開始</button>
+                <button class="btn" style="margin:0;" id="startBtn" onclick="connect()">LIVE配信に接続</button>
             </div>
-            <div id="log">ログ待機中...</div>
+            <div id="log">ログ: IDを入力して接続してください</div>
         </div>
     </div>
 
@@ -70,20 +78,40 @@
         function login() {
             tid = document.getElementById('uid').value.trim();
             if(!tid) return alert("IDを入力してください");
+            document.getElementById('display-id').innerText = "@" + tid;
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app').style.display = 'block';
         }
+
         function tab(id) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
         }
+
         function connect() {
+            const btn = document.getElementById('startBtn');
+            btn.innerText = "接続中...";
             const con = new TikTokLiveConnector.WebcastPushConnection(tid);
-            con.connect().then(() => {
-                document.getElementById('log').prepend("✅ 接続成功！\n");
-                let u = new SpeechSynthesisUtterance("マックトック、オンラインです。");
+
+            con.connect().then(state => {
+                document.getElementById('log').prepend("✅ 接続成功！プロフィールを取得中...\n");
+                btn.style.background = "#2ecc71";
+                btn.innerText = "接続済み";
+
+                // アイコンと名前を表示
+                if(state.roomInfo && state.roomInfo.owner) {
+                    const owner = state.roomInfo.owner;
+                    document.getElementById('user-avatar').src = owner.avatar_thumb.url_list[0];
+                    document.getElementById('display-name').innerText = owner.nickname;
+                }
+
+                let u = new SpeechSynthesisUtterance("マックトック、接続完了しました。");
                 u.lang = 'ja-JP'; window.speechSynthesis.speak(u);
+            }).catch(err => {
+                document.getElementById('log').prepend("❌ 接続エラー: 配信中か確認してください\n");
+                btn.innerText = "再試行";
             });
+
             con.on('chat', d => {
                 document.getElementById('log').prepend(`[CHAT] ${d.nickname}: ${d.comment}\n`);
                 let u = new SpeechSynthesisUtterance(`${d.nickname}、${d.comment}`);
