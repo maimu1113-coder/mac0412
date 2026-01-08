@@ -2,80 +2,108 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>TikTok読み上げ 最終版</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <title>TikTok 読み上げ君【完全版】</title>
     <style>
-        body { background:#000; color:#fff; text-align:center; font-family:sans-serif; padding:20px; }
-        input { padding:15px; width:85%; margin-bottom:10px; border-radius:10px; font-size:16px; color:#000; }
-        button { padding:15px; width:85%; background:#ff0050; color:#fff; border-radius:10px; font-weight:bold; font-size:18px; border:none; }
-        #status { margin:20px; color:#ffdd00; font-weight:bold; }
-        #log { background:#111; height:300px; overflow-y:auto; border:1px solid #333; padding:10px; text-align:left; font-size:12px; border-radius:10px; }
+        body { background:#000; color:#fff; text-align:center; font-family:sans-serif; margin:0; padding:20px; overflow-x:hidden; }
+        .box { background:#1a1a1a; padding:15px; border-radius:15px; margin-bottom:15px; border:1px solid #333; }
+        input { padding:15px; width:80%; border-radius:10px; border:none; font-size:16px; margin:10px 0; outline:none; }
+        button { padding:15px; width:85%; background:#ff0050; color:#fff; border-radius:10px; border:none; font-weight:bold; font-size:18px; cursor:pointer; box-shadow:0 4px 10px rgba(255,0,80,0.3); }
+        button:active { transform:scale(0.98); }
+        #status { margin:15px; font-weight:bold; color:#ffdd00; font-size:14px; }
+        #log { background:#000; height:350px; overflow-y:auto; border:1px solid #333; padding:10px; text-align:left; font-size:12px; border-radius:10px; line-height:1.6; }
+        .chat { color:#00f2ea; margin-bottom:4px; }
+        .gift { color:#ff0050; font-weight:bold; border-bottom:1px solid #333; padding-bottom:2px; }
     </style>
 </head>
 <body>
-    <h2>TikTok 読み上げ君</h2>
-    <input type="text" id="idInput" placeholder="TikTok IDを正確に入力" value="genkai_inpeita">
-    <br>
-    <button id="s">読み上げを開始する</button>
-    <div id="status">準備中...</div>
-    <div id="log">ログがここに表示されます</div>
+
+    <div class="box">
+        <h3>TikTok 読み上げ君</h3>
+        <input type="text" id="idInput" placeholder="TikTok ID (@抜き)" value="genkai_inpeita">
+        <button id="sBtn">読み上げを開始する</button>
+        <div id="status">準備中...</div>
+    </div>
+
+    <div id="log">ここにイベントが表示されます</div>
 
     <script src="https://cdn.jsdelivr.net/npm/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js"></script>
 
     <script>
-        const btn = document.getElementById('s');
+        const btn = document.getElementById('sBtn');
         const status = document.getElementById('status');
         const log = document.getElementById('log');
 
-        function addLog(msg) {
+        function addLog(msg, type='') {
             const d = document.createElement('div');
-            d.innerText = msg;
+            d.className = type;
+            d.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
             log.prepend(d);
         }
 
-        // ページが開いた瞬間に部品があるかチェック
-        window.onload = () => {
+        // 起動時のチェック
+        function checkReady() {
             if (typeof TikTokLiveConnector !== 'undefined') {
-                status.innerText = "停止中（準備OK）";
+                status.innerText = "● 停止中（接続準備完了）";
+                status.style.color = "#00ff00";
+                return true;
             } else {
-                status.innerText = "❌ 部品の読み込みに失敗。再読み込みしてください。";
+                status.innerText = "⚠️ 接続部品を読み込み中...（数秒待ってください）";
+                return false;
             }
-        };
+        }
+        setInterval(checkReady, 2000);
 
         btn.onclick = () => {
-            const tiktokId = document.getElementById('idInput').value.trim();
-            if (!tiktokId) { alert("IDを入れてください"); return; }
-
-            // 音声テスト
-            const u = new SpeechSynthesisUtterance("接続を開始します");
-            window.speechSynthesis.speak(u);
-
-            addLog("接続を試みています: " + tiktokId);
-
-            // TikTokLiveConnectorが存在するか最終確認してから実行
-            if (typeof TikTokLiveConnector === 'undefined') {
-                addLog("エラー: 接続用部品がまだ読み込まれていません。10秒待ってから押してください。");
+            if (!checkReady()) {
+                alert("まだ準備ができていません。10秒ほど待ってからもう一度押してください。");
                 return;
             }
 
+            const tid = document.getElementById('idInput').value.trim();
+            if (!tid) return;
+
+            // 音声テスト
+            const u = new SpeechSynthesisUtterance("接続を開始します");
+            u.lang = 'ja-JP';
+            window.speechSynthesis.speak(u);
+
+            status.innerText = "⏳ 接続を試みています...";
+            addLog(`${tid} に接続中...`);
+
             try {
-                const con = new TikTokLiveConnector.WebcastPushConnection(tiktokId);
+                const con = new TikTokLiveConnector.WebcastPushConnection(tid);
 
-                con.connect().then(state => {
-                    status.innerText = "✅ 接続成功！";
-                    addLog("成功！コメントを待っています...");
-                }).catch(err => {
-                    status.innerText = "❌ 接続失敗";
-                    addLog("エラー: 配信が見つからないか、IDが違います。");
+                con.connect().then(s => {
+                    status.innerText = "✅ 接続成功！配信を見守っています";
+                    status.style.color = "#00ff00";
+                    addLog("繋がりました！");
+                }).catch(e => {
+                    status.innerText = "❌ 接続失敗（配信外かIDミス）";
+                    status.style.color = "#ff4444";
+                    addLog("エラー: " + e);
                 });
 
+                // チャット読み上げ
                 con.on('chat', data => {
-                    addLog(data.nickname + ": " + data.comment);
-                    const msg = new SpeechSynthesisUtterance(data.nickname + "さん、" + data.comment);
-                    window.speechSynthesis.speak(msg);
+                    addLog(`${data.nickname}: ${data.comment}`, 'chat');
+                    const m = new SpeechSynthesisUtterance(`${data.nickname}さん、${data.comment}`);
+                    m.lang = 'ja-JP';
+                    m.rate = 1.1; // 少し早口で読み上げ
+                    window.speechSynthesis.speak(m);
                 });
-            } catch (e) {
-                addLog("起動エラー: " + e.message);
+
+                // ギフト読み上げ
+                con.on('gift', data => {
+                    const txt = `${data.nickname}さんが${data.giftName}を贈りました！`;
+                    addLog("🎁 " + txt, 'gift');
+                    const m = new SpeechSynthesisUtterance(txt);
+                    m.lang = 'ja-JP';
+                    window.speechSynthesis.speak(m);
+                });
+
+            } catch (err) {
+                addLog("起動ミス: " + err);
             }
         };
     </script>
