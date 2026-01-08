@@ -3,135 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
-    <title>Mac tok PRO - Ultimate Bypass</title>
+    <title>Mac tok PRO</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <style>
-        :root { --primary: #ff0050; --bg: #000000; --card: #111111; --text: #ffffff; --green: #2ecc71; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; overflow: hidden; }
+        :root { --primary: #ff0050; --bg: #000000; --input-bg: #1a1a1a; --text: #ffffff; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; overflow: hidden; height: 100vh; }
         
-        /* ログイン画面 */
-        #login-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
-        .login-box { width: 85%; max-width: 350px; text-align: center; }
-        .input-id { width: 100%; padding: 20px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; color: #fff; font-size: 16px; margin: 25px 0; text-align: center; }
-        .btn-auth { width: 100%; padding: 20px; background: var(--primary); border: none; border-radius: 50px; color: #fff; font-weight: bold; font-size: 16px; box-shadow: 0 0 20px rgba(255,0,80,0.4); }
+        /* ログイン画面のデザイン修正 */
+        #login-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .logo-container { text-align: center; margin-bottom: 40px; }
+        .logo-main { font-size: 42px; font-weight: 800; letter-spacing: -1.5px; display: inline-block; }
+        .logo-pro { color: var(--primary); margin-left: 2px; }
+        .sub-text { color: #555; font-size: 14px; margin-top: 8px; font-weight: 500; }
 
-        /* メイン画面 */
-        #app { display: none; height: 100vh; display: flex; flex-direction: column; }
-        .header { padding: 40px 20px 20px; background: var(--card); border-bottom: 1px solid #222; }
-        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: bold; background: #333; margin-bottom: 10px; }
-        
+        .input-field { width: 85%; max-width: 320px; padding: 20px; background: var(--input-bg); border: 1px solid #333; border-radius: 14px; color: #fff; font-size: 17px; text-align: center; margin-bottom: 20px; outline: none; }
+        .btn-pink { width: 85%; max-width: 320px; padding: 20px; background: var(--primary); border: none; border-radius: 50px; color: #fff; font-weight: bold; font-size: 17px; box-shadow: 0 4px 20px rgba(255, 0, 80, 0.5); cursor: pointer; }
+
+        /* メイン画面（画像2枚目以降を想定） */
+        #app { display: none; height: 100vh; flex-direction: column; }
+        .header { padding: 50px 20px 20px; background: #111; border-bottom: 1px solid #222; }
+        .user-id-display { font-size: 22px; font-weight: bold; }
         .main-content { flex: 1; padding: 20px; overflow-y: auto; }
-        .card { background: var(--card); border-radius: 20px; padding: 20px; margin-bottom: 20px; border: 1px solid #222; }
-        .btn-start { width: 100%; padding: 20px; background: var(--primary); border: none; border-radius: 15px; color: #fff; font-weight: bold; font-size: 16px; }
-        
-        #log-window { background: #050505; color: var(--green); font-family: monospace; font-size: 11px; padding: 15px; border-radius: 12px; height: 200px; overflow-y: auto; border: 1px solid #222; }
+        .log-box { background: #050505; color: #2ecc71; font-family: monospace; font-size: 12px; padding: 15px; border-radius: 12px; height: 250px; border: 1px solid #222; margin-top: 20px; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
-        <div class="login-box">
-            <h1 style="font-size:38px; margin:0; letter-spacing:-1px;">Mac tok <span style="color:var(--primary)">PRO</span></h1>
-            <p style="color:#555; font-size:14px; margin-top:5px;">Security Bypass Engine v2.0</p>
-            <input type="text" id="target-id" class="input-id" value="mac.d.onald.no1">
-            <button class="btn-auth" onclick="initApp()">システム認証 / ログイン</button>
+        <div class="logo-container">
+            <div class="logo-main">Mac tok<span class="logo-pro">PRO</span></div>
+            <div class="sub-text">Security Bypass Engine v2.0</div>
         </div>
+        <input type="text" id="target-id" class="input-field" value="mac.d.onald.no1">
+        <button class="btn-pink" onclick="startSystem()">システム認証 / ログイン</button>
     </div>
 
-    <div id="app" style="display:none;">
+    <div id="app">
         <div class="header">
-            <div id="status-tag" class="status-badge">STANDBY</div>
-            <h2 id="display-id" style="margin:0; font-size:24px;">@mac.d.onald.no1</h2>
+            <div style="font-size: 11px; color: #888; margin-bottom: 5px;">CONNECTED AS</div>
+            <div class="user-id-display" id="display-id">@mac.d.onald.no1</div>
         </div>
-
         <div class="main-content">
-            <div class="card">
-                <button class="btn-start" id="connBtn" onclick="startTurboConnect()">LIVE同期を強制開始</button>
-            </div>
-            
-            <div class="card">
-                <div style="font-size:12px; color:#555; margin-bottom:10px;">バイパス通信ログ</div>
-                <div id="log-window">Engine Ready...</div>
-            </div>
+            <button class="btn-pink" id="connBtn" onclick="runTurbo()">LIVE同期を最速で開始</button>
+            <div id="log-window" class="log-box">システム待機中...</div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/tiktok-live-connect@0.1.4/dist/browser/tiktok-live-connect.min.js"></script>
     <script>
+        // 勝手に他画面へ飛ぶのを防ぐ
+        window.addEventListener('popstate', function (event) {
+            history.pushState(null, document.title, location.href);
+        });
+        history.pushState(null, document.title, location.href);
+
         let tid = "";
         let connection = null;
 
-        // アプリ外への遷移をブロックする
-        window.onbeforeunload = function() { return "接続を維持しますか？"; };
-
-        function initApp() {
+        function startSystem() {
             tid = document.getElementById('target-id').value.trim().replace('@','');
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app').style.display = 'flex';
             document.getElementById('display-id').innerText = "@" + tid;
         }
 
-        function writeLog(msg, isError = false) {
-            const log = document.getElementById('log-window');
-            const time = new Date().toLocaleTimeString();
-            log.innerHTML = `<div style="color:${isError?'#ff4444':''}">[${time}] ${msg}</div>` + log.innerHTML;
-        }
-
-        async function startTurboConnect() {
+        async function runTurbo() {
             const btn = document.getElementById('connBtn');
-            const tag = document.getElementById('status-tag');
-            
-            btn.innerText = "同期経路を計算中...";
+            const log = document.getElementById('log-window');
+            btn.innerText = "同期経路を確立中...";
             btn.disabled = true;
-            writeLog("🔍 ターゲットを検索: " + tid);
 
-            const attemptConnect = async (count) => {
-                try {
-                    if (connection) connection.disconnect();
-                    
-                    connection = new TikTokLiveConnector.WebcastPushConnection(tid);
-                    const state = await connection.connect();
+            try {
+                if (connection) connection.disconnect();
+                connection = new TikTokLiveConnector.WebcastPushConnection(tid);
+                
+                await connection.connect();
+                log.innerHTML = "✅ 同期完了。音声エンジンを起動しました。<br>" + log.innerHTML;
+                btn.innerText = "同期中 (ONLINE)";
+                btn.style.background = "#2ecc71";
+                btn.style.boxShadow = "0 4px 20px rgba(46, 204, 113, 0.5)";
 
-                    writeLog("✅ 回避成功！データ同期を開始。");
-                    btn.innerText = "同期中 (ON)";
-                    btn.style.background = "#2ecc71";
-                    tag.innerText = "ONLINE";
-                    tag.style.background = "#2ecc71";
-
-                    const u = new SpeechSynthesisUtterance("接続に成功しました。");
+                // 音声読み上げ
+                const speak = (msg) => {
+                    const u = new SpeechSynthesisUtterance(msg);
                     u.lang = 'ja-JP';
                     window.speechSynthesis.speak(u);
+                };
 
-                    // データの受信処理
-                    connection.on('chat', d => {
-                        writeLog(`${d.nickname}: ${d.comment}`);
-                        const s = new SpeechSynthesisUtterance(`${d.nickname}、${d.comment}`);
-                        s.lang = 'ja-JP';
-                        window.speechSynthesis.speak(s);
-                    });
+                speak("システム正常稼働。");
 
-                    connection.on('gift', d => {
-                        writeLog(`GIFT: ${d.giftName} from ${d.nickname}`);
-                        const s = new SpeechSynthesisUtterance(`${d.nickname}さん、${d.giftName}ありがとう！`);
-                        s.lang = 'ja-JP';
-                        window.speechSynthesis.speak(s);
-                    });
+                connection.on('chat', d => {
+                    log.innerHTML = `[CHAT] ${d.nickname}: ${d.comment}<br>` + log.innerHTML;
+                    speak(`${d.nickname}、${d.comment}`);
+                });
 
-                } catch (err) {
-                    writeLog(`⚠️ 試行 ${count}: 同期に失敗。再計算します...`, true);
-                    if (count < 5) {
-                        setTimeout(() => attemptConnect(count + 1), 1500);
-                    } else {
-                        writeLog("❌ 致命的エラー: 配信が確認できません。配信を開始してください。", true);
-                        btn.innerText = "再試行する";
-                        btn.disabled = false;
-                    }
-                }
-            };
+                connection.on('gift', d => {
+                    log.innerHTML = `<span style="color:#ff0050">[GIFT] ${d.nickname}: ${d.giftName}</span><br>` + log.innerHTML;
+                    speak(`${d.nickname}さん、${d.giftName}ありがとう！`);
+                });
 
-            attemptConnect(1);
+            } catch (e) {
+                log.innerHTML = "❌ 失敗: 配信を開始してから再試行してください。<br>" + log.innerHTML;
+                btn.innerText = "再試行する";
+                btn.disabled = false;
+            }
         }
     </script>
 </body>
