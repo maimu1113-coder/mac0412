@@ -3,132 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-    <title>macfinity PRO - TTS Engine</title>
+    <title>macfinity - Ultimate Automation</title>
     <style>
-        :root { --accent: #ffb703; --primary: #ff0050; --bg: #0f1115; --card: #1c1f26; }
-        body { background: var(--bg); color: #fff; font-family: -apple-system, sans-serif; margin: 0; padding: 15px; }
-        
-        .header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-        .logo { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(45deg, var(--primary), #00f2ea); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 10px; }
-        .header h1 { font-size: 18px; margin: 0; flex-grow: 1; }
-
-        .card { background: var(--card); border-radius: 15px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        h2 { font-size: 14px; color: #888; margin: 0 0 15px; text-transform: uppercase; letter-spacing: 1px; }
-
-        /* 入力とスライダー */
-        input[type="text"] { width: 100%; padding: 12px; background: #000; border: 1px solid #333; border-radius: 10px; color: #fff; font-size: 16px; margin-bottom: 10px; box-sizing: border-box; }
-        .setting-item { margin-bottom: 15px; }
-        .label-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
+        :root { --accent: #ffb703; --primary: #ff0050; --bg: #0f1115; --card: #1c2128; --border: #2f3338; }
+        body { background: var(--bg); color: #fff; font-family: -apple-system, sans-serif; margin: 0; font-size: 14px; }
+        .nav { display: flex; align-items: center; padding: 15px; background: var(--card); border-bottom: 1px solid var(--border); sticky: top; }
+        .logo { width: 30px; height: 30px; background: linear-gradient(45deg, var(--primary), #00f2ea); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; margin-right: 10px; }
+        .tabs { display: flex; background: var(--card); border-bottom: 1px solid var(--border); text-align: center; }
+        .tab { flex: 1; padding: 12px; color: #888; font-size: 12px; border-bottom: 2px solid transparent; }
+        .tab.active { color: #fff; border-bottom-color: var(--primary); }
+        .container { padding: 15px; max-width: 600px; margin: auto; }
+        .card { background: var(--card); border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+        .section-title { font-size: 12px; color: #888; text-transform: uppercase; margin-bottom: 15px; font-weight: bold; }
+        .row { margin-bottom: 15px; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
         input[type="range"] { width: 100%; accent-color: var(--accent); }
-
-        /* スイッチ風のデザイン */
-        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2a2d35; }
-        .toggle-row:last-child { border: none; }
-        .toggle-row span { font-size: 15px; }
-
-        .btn-main { width: 100%; padding: 15px; border-radius: 10px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; color: #fff; background: #d63384; margin-top: 10px; }
-        
-        #log { background: #000; height: 200px; overflow-y: auto; border-radius: 10px; padding: 15px; font-family: monospace; font-size: 11px; margin-top: 15px; color: #0f0; border: 1px solid #222; }
-        video { width: 1px; height: 1px; position: absolute; opacity: 0; }
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; background: #000; border: 1px solid var(--border); border-radius: 8px; color: #fff; box-sizing: border-box; }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+        .btn-start { width: 100%; padding: 15px; background: #d63384; border: none; border-radius: 8px; color: #fff; font-weight: bold; margin-top: 10px; }
+        #log { background: #000; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 11px; height: 100px; overflow-y: auto; color: #0f0; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="logo">mac</div>
-        <h1>TTS音声ギャラリー (macfinity)</h1>
+<div class="nav"><div class="logo">mac</div><h1>macfinity TTS音声ギャラリー</h1></div>
+<div class="tabs"><div class="tab">家</div><div class="tab">アラート</div><div class="tab active">TTS</div></div>
+
+<div class="container">
+    <div class="card">
+        <div class="section-title">接続設定</div>
+        <input type="text" id="targetId" value="creok.farm">
+        <button class="btn-start" id="startBtn">サウンドアラートとテキスト読み上げを開始する</button>
     </div>
 
     <div class="card">
-        <h2>ID設定</h2>
-        <input type="text" id="targetId" placeholder="TikTok ID" value="creok.farm">
-        <button class="btn-main" id="startBtn">サウンドアラートとテキスト読み上げを開始する</button>
+        <div class="section-title">音声設定</div>
+        <div class="row"><div class="label-row"><span>デフォルトの速度</span><span id="sV">50</span></div><input type="range" id="speed" min="10" max="100" value="50"></div>
+        <div class="row"><div class="label-row"><span>デフォルトのピッチ</span><span id="pV">50</span></div><input type="range" id="pitch" min="10" max="100" value="50"></div>
     </div>
 
     <div class="card">
-        <h2>音声設定 (Googleボイス風)</h2>
-        <div class="setting-item">
-            <div class="label-row"><span>デフォルトの速度</span><span id="speedVal">1.0</span></div>
-            <input type="range" id="speed" min="0.5" max="2.0" step="0.1" value="1.0">
-        </div>
-        <div class="setting-item">
-            <div class="label-row"><span>デフォルトのピッチ</span><span id="pitchVal">1.0</span></div>
-            <input type="range" id="pitch" min="0.5" max="2.0" step="0.1" value="1.0">
-        </div>
+        <div class="section-title">スパム対策 / 制限</div>
+        <div class="row"><div class="label-row"><span>最低コイン数 (ギフト)</span></div><input type="number" id="minCoins" value="0"></div>
+        <div class="row"><div class="label-row"><span>ユーザークールダウン (秒)</span></div><input type="number" id="cooldown" value="0"></div>
+        <div class="toggle-row"><span>スパムメールをフィルタリングする</span><input type="checkbox" id="spamFilter" checked></div>
     </div>
 
     <div class="card">
-        <h2>イベント別設定</h2>
+        <div class="section-title">テキストテンプレート</div>
+        <div class="row"><span>チャット用: {comment}</span><textarea id="tplChat" rows="2">{comment}</textarea></div>
+        <div class="row"><span>ギフト用: {nickname}さん、{giftName}ありがとう！</span><textarea id="tplGift" rows="2">{nickname}さん、{giftName}ギフトを送っていただきありがとうございます！</textarea></div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">許可されたイベント</div>
         <div class="toggle-row"><span>あらゆるギフト</span><input type="checkbox" id="giftOn" checked></div>
         <div class="toggle-row"><span>フォローする</span><input type="checkbox" id="followOn" checked></div>
-        <div class="toggle-row"><span>チャット読み上げ</span><input type="checkbox" id="chatOn" checked></div>
+        <div class="toggle-row"><span>テキスト読み上げ (コメント)</span><input type="checkbox" id="chatOn" checked></div>
     </div>
 
     <div id="log">Engine ready...</div>
-    <video id="v" playsinline muted loop src="https://www.w3schools.com/html/mov_bbb.mp4"></video>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js"></script>
-    <script>
-        const v = document.getElementById('v'), log = document.getElementById('log'), btn = document.getElementById('startBtn');
-        const speed = document.getElementById('speed'), pitch = document.getElementById('pitch');
-        
-        // スライダーの数値を表示に反映
-        speed.oninput = () => document.getElementById('speedVal').innerText = speed.value;
-        pitch.oninput = () => document.getElementById('pitchVal').innerText = pitch.value;
+<script src="https://cdn.jsdelivr.net/npm/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js"></script>
+<script>
+    const log = document.getElementById('log'), btn = document.getElementById('startBtn');
+    const speed = document.getElementById('speed'), pitch = document.getElementById('pitch');
+    let lastSpeakTime = 0;
 
-        function speak(t) {
-            const u = new SpeechSynthesisUtterance(t);
-            u.lang = 'ja-JP';
-            u.rate = speed.value;
-            u.pitch = pitch.value;
-            window.speechSynthesis.speak(u);
-        }
+    speed.oninput = () => document.getElementById('sV').innerText = speed.value;
+    pitch.oninput = () => document.getElementById('pV').innerText = pitch.value;
 
-        function addLog(m) {
-            const d = document.createElement('div');
-            d.innerText = `[${new Date().toLocaleTimeString()}] ${m}`;
-            log.prepend(d);
-        }
+    function macSpeak(text) {
+        const now = Date.now();
+        const cd = document.getElementById('cooldown').value * 1000;
+        if (now - lastSpeakTime < cd) return; // クールダウン中
 
-        btn.onclick = async () => {
-            const tid = document.getElementById('targetId').value.trim();
-            addLog("Engine initializing...");
-            try {
-                await v.play();
-                if (v.webkitSetPresentationMode) v.webkitSetPresentationMode("picture-in-picture");
-                speak("読み上げを開始します。");
-            } catch (e) {}
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'ja-JP';
+        u.rate = speed.value / 50;
+        u.pitch = pitch.value / 50;
+        window.speechSynthesis.speak(u);
+        lastSpeakTime = now;
+    }
 
-            if (typeof TikTokLiveConnector === 'undefined') return addLog("Error: Library not loaded");
-            const con = new TikTokLiveConnector.WebcastPushConnection(tid);
+    btn.onclick = () => {
+        const tid = document.getElementById('targetId').value.trim();
+        log.innerText = `Connecting to ${tid}...`;
+        macSpeak("マックフィニティを起動します。全機能を同期しました。");
 
-            con.connect().then(() => {
-                addLog(`Connected: ${tid}`);
-                btn.style.background = "#28a745";
-                btn.innerText = "同期中...";
-            }).catch(() => addLog("Connection failed. Check ID/Live status."));
+        const con = new TikTokLiveConnector.WebcastPushConnection(tid);
+        con.connect().then(() => {
+            log.prepend(`[SUCCESS] Connected to live\n`);
+            btn.style.background = "#28a745"; btn.innerText = "同期中 (ON)";
+        }).catch(() => log.prepend(`[ERROR] ID error or Offline\n`));
 
-            con.on('chat', d => {
-                if(document.getElementById('chatOn').checked) {
-                    addLog(`CHAT: ${d.nickname}: ${d.comment}`);
-                    speak(`${d.nickname}さん、${d.comment}`);
-                }
-            });
+        con.on('chat', d => {
+            if(!document.getElementById('chatOn').checked) return;
+            let msg = document.getElementById('tplChat').value.replace('{comment}', d.comment).replace('{nickname}', d.nickname);
+            log.prepend(`[CHAT] ${d.nickname}: ${d.comment}\n`);
+            macSpeak(msg);
+        });
 
-            con.on('gift', d => {
-                if(document.getElementById('giftOn').checked) {
-                    addLog(`GIFT: ${d.nickname} sent ${d.giftName}`);
-                    speak(`${d.nickname}さん、${d.giftName}ありがとうございます！`);
-                }
-            });
+        con.on('gift', d => {
+            if(!document.getElementById('giftOn').checked || d.diamondCount < document.getElementById('minCoins').value) return;
+            let msg = document.getElementById('tplGift').value.replace('{giftName}', d.giftName).replace('{nickname}', d.nickname);
+            log.prepend(`[GIFT] ${d.nickname}: ${d.giftName}\n`);
+            macSpeak(msg);
+        });
 
-            con.on('follow', d => {
-                if(document.getElementById('followOn').checked) {
-                    addLog(`FOLLOW: ${d.nickname}`);
-                    speak(`${d.nickname}さん、フォローありがとう！`);
-                }
-            });
-        };
-    </script>
+        con.on('follow', d => {
+            if(!document.getElementById('followOn').checked) return;
+            log.prepend(`[FOLLOW] ${d.nickname}\n`);
+            macSpeak(`${d.nickname}さん、フォローありがとうございます！`);
+        });
+    };
+</script>
 </body>
 </html>
