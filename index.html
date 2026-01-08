@@ -2,73 +2,127 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-    <title>TikTok 読み上げ【最終修正版】</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+    <title>TikTok Live Reader PRO</title>
     <style>
-        body { background:#000; color:#fff; text-align:center; font-family:sans-serif; padding:20px; }
-        .box { background:#1a1a1a; padding:15px; border-radius:15px; border:2px solid #00f2ea; }
-        button { padding:20px; width:90%; background:#ff0050; color:#fff; border-radius:10px; font-weight:bold; font-size:20px; border:none; margin-top:10px; }
-        #log { background:#111; height:300px; overflow-y:auto; margin-top:20px; padding:10px; text-align:left; font-size:12px; border-radius:10px; }
-        video { width:100px; height:50px; position:fixed; bottom:0; right:0; opacity:0.1; pointer-events:none; }
+        :root { --main: #ff0050; --sub: #00f2ea; --bg: #050505; }
+        body { background: var(--bg); color: #fff; font-family: 'Helvetica Neue', sans-serif; margin: 0; padding: 20px; text-align: center; }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            border-radius: 25px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 { font-size: 26px; margin: 0; background: linear-gradient(90deg, var(--main), var(--sub)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; }
+
+        input {
+            width: 100%; padding: 18px; background: rgba(0,0,0,0.6); border: 2px solid #333; border-radius: 15px;
+            color: #fff; font-size: 18px; text-align: center; margin: 25px 0; outline: none; box-sizing: border-box;
+        }
+        input:focus { border-color: var(--sub); }
+
+        .btn {
+            width: 100%; padding: 22px; border-radius: 15px; border: none; font-weight: bold; font-size: 20px;
+            cursor: pointer; color: #fff; background: linear-gradient(45deg, var(--main), #ff4d79);
+            box-shadow: 0 6px 20px rgba(255, 0, 80, 0.4); transition: 0.3s;
+        }
+        .btn:active { transform: scale(0.95); opacity: 0.8; }
+
+        #status { font-size: 15px; color: var(--sub); margin: 15px 0; font-weight: bold; text-shadow: 0 0 8px var(--sub); }
+
+        #log {
+            background: rgba(0,0,0,0.8); height: 280px; overflow-y: auto; border-radius: 15px;
+            padding: 15px; text-align: left; font-size: 13px; border: 1px solid #222; margin-top: 20px;
+        }
+        .log-entry { border-left: 3px solid var(--main); padding-left: 10px; margin-bottom: 8px; color: #ccc; }
+        
+        /* 小窓に映る映像（キャンバス）を隠さず、デザインの一部に */
+        canvas { width: 100%; height: 60px; background: #000; border-radius: 10px; margin-top: 15px; border: 1px solid #333; }
+        video { display: none; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h3>TikTok 読み上げ君</h3>
-        <input type="text" id="i" value="genkai_inpeita" style="padding:10px; width:80%; font-size:18px;">
-        <button id="mainBtn">小窓起動 ＆ 接続開始</button>
-        <div id="status" style="margin-top:10px; color:#ffdd00;">【重要】ボタンを押すと小窓が出ます</div>
+    <div class="glass-card">
+        <h1>LIVE READER PRO</h1>
+        <input type="text" id="idInput" placeholder="TikTok ID (@抜き)" value="sena..222">
+        <button class="btn" id="startBtn">小窓起動 ＆ 接続開始</button>
+        <div id="status">● SYSTEM STANDBY</div>
     </div>
+    
+    <canvas id="c"></canvas>
     <video id="v" playsinline muted loop></video>
-    <div id="log">ログを表示...</div>
+    
+    <div id="log"></div>
 
     <script src="https://unpkg.com/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js"></script>
     <script>
         const v = document.getElementById('v');
-        const mainBtn = document.getElementById('mainBtn');
+        const c = document.getElementById('c');
+        const ctx = c.getContext('2d');
         const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        const btn = document.getElementById('startBtn');
 
-        function addLog(m) { const d=document.createElement('div'); d.innerText=`[${new Date().toLocaleTimeString()}] ${m}`; log.prepend(d); }
+        function addLog(m) {
+            const d = document.createElement('div');
+            d.className = 'log-entry';
+            d.innerText = `[${new Date().toLocaleTimeString()}] ${m}`;
+            log.prepend(d);
+            updateCanvas(m); // 小窓の中身も更新
+        }
 
-        mainBtn.onclick = async () => {
-            addLog("ボタンが押されました。処理開始...");
+        function updateCanvas(m) {
+            ctx.fillStyle = "#000"; ctx.fillRect(0,0,c.width,c.height);
+            ctx.fillStyle = "#00f2ea"; ctx.font = "12px sans-serif";
+            ctx.fillText("TikTok Live Syncing...", 10, 30);
+            ctx.fillStyle = "white"; ctx.fillText(m, 10, 80);
+        }
+
+        btn.onclick = async () => {
+            const tid = document.getElementById('idInput').value.trim();
+            addLog("System Initializing...");
             
-            // 1. 小窓を出す（これがないと裏で止まる）
+            // 1. 小窓を最優先で起動
             try {
-                const canvas = document.createElement('canvas');
-                canvas.width = 100; canvas.height = 100;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = "red"; ctx.fillRect(0,0,100,100);
-                v.srcObject = canvas.captureStream();
+                v.srcObject = c.captureStream();
                 await v.play();
                 await v.requestPictureInPicture();
-                addLog("✅ 小窓OK！");
+                addLog("✅ PIP MODE ACTIVE");
             } catch (e) {
-                addLog("❌ 小窓失敗。設定を確認してください。");
+                addLog("⚠️ PIP Failed. Tap screen first.");
             }
 
-            // 2. 接続開始（外部部品がなくてもエラーにならないように保護）
+            // 2. TikTok接続
             if (typeof TikTokLiveConnector === 'undefined') {
-                addLog("❌ まだ部品が読み込まれていません。10秒待って。");
+                addLog("❌ Library Error. Check Signal.");
                 return;
             }
 
-            const tid = document.getElementById('i').value;
             try {
                 const con = new TikTokLiveConnector.WebcastPushConnection(tid);
                 con.connect().then(() => {
-                    addLog("✅ 接続完了！読み上げます。");
-                    window.speechSynthesis.speak(new SpeechSynthesisUtterance("接続成功"));
-                }).catch(e => addLog("❌ IDミスか配信外です。"));
+                    status.innerText = "✅ SYNCED: " + tid;
+                    addLog("Connected to " + tid);
+                    window.speechSynthesis.speak(new SpeechSynthesisUtterance("接続しました"));
+                }).catch(err => {
+                    addLog("❌ Offline or ID Error.");
+                });
 
                 con.on('chat', data => {
-                    addLog(data.nickname + ":" + data.comment);
-                    const u = new SpeechSynthesisUtterance(data.nickname + "さん " + data.comment);
-                    u.lang = 'ja-JP';
-                    window.speechSynthesis.speak(u);
+                    addLog(`${data.nickname}: ${data.comment}`);
+                    const m = new SpeechSynthesisUtterance(`${data.nickname}さん、${data.comment}`);
+                    m.lang = 'ja-JP';
+                    window.speechSynthesis.speak(m);
                 });
-            } catch (e) { addLog("エラー:" + e.message); }
+            } catch (err) { addLog("Error: " + err.message); }
         };
+        
+        // 初期画面
+        updateCanvas("Ready to Connect...");
     </script>
 </body>
 </html>
