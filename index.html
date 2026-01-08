@@ -3,68 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <title>TikTok 読み上げ 最終形態</title>
+    <title>TikTok 読み上げ【小窓モード】</title>
     <style>
-        body { background:#000; color:#fff; text-align:center; font-family:sans-serif; margin:0; padding:20px; }
-        .box { background:#1a1a1a; padding:20px; border-radius:15px; border:2px solid #ff0050; margin-bottom:15px; }
-        input { padding:15px; width:80%; border-radius:10px; border:none; font-size:16px; margin:10px 0; }
-        button { padding:15px; width:85%; background:#ff0050; color:#fff; border-radius:10px; border:none; font-weight:bold; font-size:18px; }
-        #status { margin:15px; font-weight:bold; color:#00ff00; }
-        #log { background:#000; height:300px; overflow-y:auto; border:1px solid #333; padding:10px; text-align:left; font-size:12px; border-radius:10px; }
+        body { background:#000; color:#fff; text-align:center; font-family:sans-serif; padding:20px; }
+        .box { background:#1a1a1a; padding:15px; border-radius:15px; border:2px solid #ff0050; margin-bottom:10px; }
+        input { padding:12px; width:80%; border-radius:8px; border:none; margin:10px 0; font-size:16px; }
+        button { padding:15px; width:85%; background:#ff0050; color:#fff; border-radius:10px; border:none; font-weight:bold; margin:5px 0; }
+        #status { color:#00ff00; font-weight:bold; margin:10px; font-size:14px; }
+        #log { background:#111; height:200px; overflow-y:auto; border:1px solid #333; padding:10px; text-align:left; font-size:12px; }
+        /* 小窓用のビデオ（隠しておきます） */
+        video { width:1px; height:1px; opacity:0; }
     </style>
 </head>
 <body>
     <div class="box">
-        <h3>TikTok 読み上げ君</h3>
-        <p style="font-size:10px; color:#aaa;">ネットワークエラー対策版</p>
-        <input type="text" id="i" placeholder="TikTok ID" value="genkai_inpeita">
-        <button id="b">読み上げを開始する</button>
+        <h3>TikTok 読み上げ</h3>
+        <input type="text" id="i" placeholder="TikTok ID" value="sena..222">
+        <button id="pipBtn">1. 小窓（Pip）を起動</button>
+        <button id="b">2. 読み上げ開始</button>
         <div id="status">● 準備完了</div>
     </div>
-    <div id="log">ログを表示します...</div>
+    <video id="v" playsinline muted loop></video>
+    <div id="log">ログ: </div>
 
+    <script src="https://unpkg.com/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js"></script>
     <script>
-        // ライブラリの読み込みを待機する仕組み
-        async function loadLib() {
-            if (typeof TikTokLiveConnector !== 'undefined') return true;
-            const s = document.createElement('script');
-            s.src = "https://unpkg.com/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js";
-            document.body.appendChild(s);
-            return new Promise(res => { s.onload = () => res(true); s.onerror = () => res(false); });
-        }
-
+        const v = document.getElementById('v');
         const log = document.getElementById('log');
-        const status = document.getElementById('status');
-        function addLog(m) { const d=document.createElement('div'); d.innerText=`[${new Date().toLocaleTimeString()}] ${m}`; log.prepend(d); }
+        function addLog(m) { const d=document.createElement('div'); d.innerText=m; log.prepend(d); }
 
-        document.getElementById('b').onclick = async () => {
+        // 小窓を出すためのカメラ映像ダミー
+        document.getElementById('pipBtn').onclick = async () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 300; canvas.height = 150;
+            const ctx = canvas.getContext('2d');
+            setInterval(() => {
+                ctx.fillStyle = 'black'; ctx.fillRect(0,0,300,150);
+                ctx.fillStyle = 'white'; ctx.fillText(new Date().toLocaleTimeString(), 10, 80);
+            }, 1000);
+            v.srcObject = canvas.captureStream();
+            await v.play();
+            await v.requestPictureInPicture();
+            addLog("小窓が起動しました。これで裏に回っても止まりません。");
+        };
+
+        document.getElementById('b').onclick = () => {
             const tid = document.getElementById('i').value.trim();
-            if(!tid) return;
+            const con = new TikTokLiveConnector.WebcastPushConnection(tid);
+            con.connect().then(() => {
+                addLog("接続成功！");
+                window.speechSynthesis.speak(new SpeechSynthesisUtterance("接続しました"));
+            }).catch(e => addLog("失敗:" + e));
 
-            addLog("接続準備中...");
-            const ok = await loadLib();
-            if(!ok) {
-                addLog("❌ 部品の取得に失敗しました。Wi-Fiを切って4G/5Gで試してください。");
-                return;
-            }
-
-            try {
-                const con = new TikTokLiveConnector.WebcastPushConnection(tid);
-                con.connect().then(() => {
-                    status.innerText = "✅ 接続中: " + tid;
-                    addLog("成功！コメントを待っています...");
-                    window.speechSynthesis.speak(new SpeechSynthesisUtterance("接続しました"));
-                }).catch(e => {
-                    addLog("失敗: 配信中ではないかIDが違います");
-                });
-
-                con.on('chat', data => {
-                    addLog(data.nickname + ":" + data.comment);
-                    const u = new SpeechSynthesisUtterance(data.nickname + "さん " + data.comment);
-                    u.lang = 'ja-JP';
-                    window.speechSynthesis.speak(u);
-                });
-            } catch (e) { addLog("エラー:" + e); }
+            con.on('chat', data => {
+                addLog(data.nickname + ":" + data.comment);
+                const u = new SpeechSynthesisUtterance(data.nickname + "さん " + data.comment);
+                u.lang = 'ja-JP';
+                window.speechSynthesis.speak(u);
+            });
         };
     </script>
 </body>
