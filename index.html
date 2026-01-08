@@ -6,93 +6,103 @@
     <title>Mac tok PRO</title>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://via.placeholder.com/180/ff0050/ffffff?text=MT">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/180/000/fff?text=MacTok">
 
     <style>
-        :root { --primary: #ff0050; --bg: #0f1115; --card: #1c2128; --border: #2f3338; --text: #fff; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding-top: env(safe-area-inset-top); }
+        :root { --primary: #ff0050; --bg: #121417; --card: #1c1f23; --accent: #ffd700; --text: #ffffff; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; padding: 0; }
         
-        /* ログイン */
-        #login-screen { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        .login-card { background: var(--card); padding: 40px 20px; border-radius: 20px; width: 100%; max-width: 350px; border: 1px solid var(--border); text-align: center; }
-        
-        /* メイン */
-        #app-main { display: none; }
-        .header { background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
-        .user-row { display: flex; align-items: center; gap: 12px; padding: 15px; }
-        #user-avatar { width: 45px; height: 45px; border-radius: 50%; border: 2px solid var(--primary); background: #333; }
+        /* ログイン画面 (画像14) */
+        #login-screen { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .login-box { width: 90%; max-width: 350px; text-align: center; }
+        .login-box h1 { font-size: 32px; font-weight: 800; }
+        .login-box span { color: var(--primary); }
+        .input-dark { width: 100%; padding: 18px; background: #111; border: 1px solid #333; border-radius: 12px; color: #fff; font-size: 16px; box-sizing: border-box; margin: 20px 0; text-align: center; }
+        .btn-login { width: 100%; padding: 18px; background: #111; border: 1px solid #333; border-radius: 12px; color: #fff; font-weight: bold; cursor: pointer; }
 
-        /* タブ */
-        .tabs { display: flex; background: var(--card); }
-        .tab { flex: 1; text-align: center; padding: 15px; font-size: 13px; color: #888; cursor: pointer; }
-        .tab.active { color: #fff; border-bottom: 3px solid var(--primary); font-weight: bold; }
+        /* ヘッダー (画像11) */
+        .header { background: var(--card); border-bottom: 1px solid #333; padding-top: env(safe-area-inset-top); }
+        .nav-tabs { display: flex; border-bottom: 2px solid #222; }
+        .tab { flex: 1; text-align: center; padding: 15px; color: #888; font-size: 14px; cursor: pointer; }
+        .tab.active { color: #fff; border-bottom: 2px solid var(--primary); }
 
         /* コンテンツ */
-        .page { display: none; padding: 20px; }
+        .page { display: none; padding: 15px; }
         .page.active { display: block; }
-        .card { background: var(--card); border-radius: 15px; padding: 20px; margin-bottom: 15px; border: 1px solid var(--border); }
+        .card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 15px; }
+        .card-label { font-size: 12px; color: #888; margin-bottom: 15px; text-transform: uppercase; }
         
-        /* UIパーツ */
+        /* 設定行 (画像2, 11) */
         .row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #2a2e33; }
-        input[type="text"], input[type="number"] { width: 100%; padding: 15px; background: #000; border: 1px solid var(--border); border-radius: 10px; color: #fff; font-size: 16px; box-sizing: border-box; }
-        .btn-main { width: 100%; padding: 18px; background: var(--primary); border: none; border-radius: 14px; color: #fff; font-weight: bold; font-size: 16px; margin-top: 15px; cursor: pointer; }
-        #log-area { background: #000; border-radius: 10px; padding: 12px; font-family: monospace; font-size: 11px; height: 180px; overflow-y: auto; color: #2ecc71; border: 1px solid var(--border); }
+        .row:last-child { border: none; }
+        .slider-wrap { margin: 15px 0; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; }
+        input[type="range"] { width: 100%; accent-color: #ff9f0a; }
+
+        .btn-action { width: 100%; padding: 18px; background: var(--primary); border: none; border-radius: 12px; color: #fff; font-weight: bold; font-size: 15px; margin-top: 10px; }
+        #log { background: #000; padding: 12px; border-radius: 10px; font-size: 11px; height: 120px; overflow-y: auto; color: #0f0; font-family: monospace; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
     <div id="login-screen">
-        <div class="login-card">
-            <h1 style="margin:0 0 10px 0; font-size: 32px;">Mac tok <span style="color:var(--primary)">PRO</span></h1>
-            <p style="color:#888; font-size:14px; margin-bottom:25px;">TikTok IDで接続を開始します</p>
-            <input type="text" id="loginId" placeholder="TikTok ID (例: creok.farm)">
-            <button class="btn-main" style="background:#000; border: 1px solid var(--border);" onclick="appLogin()">TikTokでログイン</button>
+        <div class="login-box">
+            <h1>Mac tok <span>PRO</span></h1>
+            <p style="color:#888;">TikTok IDで接続を開始します</p>
+            <input type="text" id="id-input" class="input-dark" value="mac.d.onald.no1">
+            <button class="btn-login" onclick="doLogin()">TikTokでログイン</button>
         </div>
     </div>
 
-    <div id="app-main">
+    <div id="app" style="display:none;">
         <div class="header">
-            <div class="user-row">
-                <img id="user-avatar" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=">
-                <div style="flex:1;">
-                    <div id="display-name" style="font-weight:bold;">接続待機中...</div>
-                    <div id="display-id" style="font-size:12px; color:#888;">@---</div>
-                </div>
-                <div style="background: #2ecc71; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: bold;">PRO</div>
+            <div style="padding:15px; display:flex; align-items:center; gap:10px;">
+                <img id="avatar" src="" style="width:35px; height:35px; border-radius:50%; background:#333;">
+                <span id="user-name" style="font-weight:bold;">mac.d.onald.no1</span>
             </div>
-            <div class="tabs">
-                <div class="tab active" id="t-home" onclick="tab('home')">ホーム</div>
-                <div class="tab" id="t-alert" onclick="tab('alert')">アラート</div>
-                <div class="tab" id="t-tts" onclick="tab('tts')">設定/スパム</div>
+            <div class="nav-tabs">
+                <div class="tab" id="t-home" onclick="showP('home')">家</div>
+                <div class="tab" id="t-alert" onclick="showP('alert')">アラート</div>
+                <div class="tab active" id="t-tts" onclick="showP('tts')">TTS</div>
             </div>
         </div>
 
-        <div id="p-home" class="page active">
+        <div id="p-tts" class="page active">
             <div class="card">
-                <button class="btn-main" id="startBtn" onclick="connectLive()">配信に同期する</button>
+                <div class="card-label">接続設定</div>
+                <button class="btn-action" id="startBtn" onclick="connect()">サウンドアラートとテキスト読み上げを開始する</button>
             </div>
             <div class="card">
-                <div style="font-size:11px; color:#888; margin-bottom:10px;">アクティビティログ</div>
-                <div id="log-area">Ready to connect...</div>
+                <div class="card-label">音声設定</div>
+                <div class="slider-wrap">
+                    <div class="slider-label"><span>デフォルトの速度</span><span id="v-rate">50</span></div>
+                    <input type="range" id="rate" min="10" max="100" value="50" oninput="uVal('rate')">
+                </div>
+                <div class="slider-wrap">
+                    <div class="slider-label"><span>デフォルトのピッチ</span><span id="v-pitch">50</span></div>
+                    <input type="range" id="pitch" min="10" max="100" value="50" oninput="uVal('pitch')">
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-label">スパム対策 / 制限</div>
+                <div class="row"><span>最低コイン数 (ギフト)</span><input type="number" id="minC" value="0" style="width:50px; background:#000; border:1px solid #444; color:#fff;"></div>
+                <div class="row"><span>ユーザークールダウン (秒)</span><input type="number" id="cd" value="0" style="width:50px; background:#000; border:1px solid #444; color:#fff;"></div>
+                <div class="row"><span>スパムフィルタ</span><input type="checkbox" id="spamOn" checked></div>
+            </div>
+        </div>
+
+        <div id="p-home" class="page">
+            <div class="card">
+                <div class="card-label">アクティビティログ</div>
+                <div id="log">接続待機中...</div>
             </div>
         </div>
 
         <div id="p-alert" class="page">
             <div class="card">
-                <div class="row"><span>ギフトを検知</span><input type="checkbox" id="gOn" checked></div>
-                <div class="row"><span>フォローを検知</span><input type="checkbox" id="fOn" checked></div>
-                <div class="row"><span>シェアを検知</span><input type="checkbox" id="sOn" checked></div>
-            </div>
-        </div>
-
-        <div id="p-tts" class="page">
-            <div class="card">
-                <div class="row"><span>速度</span><input type="range" id="rate" min="10" max="100" value="50"></div>
-                <div class="row"><span>ピッチ</span><input type="range" id="pitch" min="10" max="100" value="50"></div>
-            </div>
-            <div class="card">
-                <div class="row"><span>クールダウン(秒)</span><input type="number" id="cd" value="3" style="width:60px;"></div>
-                <div class="row"><span>最低コイン数</span><input type="number" id="minC" value="1" style="width:60px;"></div>
+                <div class="card-label">イベント検知</div>
+                <div class="row"><span>あらゆるギフト</span><input type="checkbox" id="gOn" checked></div>
+                <div class="row"><span>フォローする</span><input type="checkbox" id="fOn" checked></div>
             </div>
         </div>
     </div>
@@ -101,63 +111,50 @@
     <script>
         let tid = "";
         let userCD = {};
-        let con = null;
 
-        function tab(name) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.getElementById('p-' + name).classList.add('active');
-            document.getElementById('t-' + name).classList.add('active');
+        function showP(n){
+            document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+            document.getElementById('p-'+n).classList.add('active');
+            document.getElementById('t-'+n).classList.add('active');
         }
 
-        function appLogin() {
-            let inputId = document.getElementById('loginId').value.trim();
-            if(!inputId) return alert("IDを入力してください");
-            // @を自動削除する対策
-            tid = inputId.replace(/^@/, '');
-            document.getElementById('display-id').innerText = "@" + tid;
+        function uVal(id){ document.getElementById('v-'+id).innerText = document.getElementById(id).value; }
+
+        function doLogin(){
+            tid = document.getElementById('id-input').value.trim().replace('@','');
             document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('app-main').style.display = 'block';
+            document.getElementById('app').style.display = 'block';
+            document.getElementById('user-name').innerText = tid;
         }
 
-        function speak(text) {
-            const u = new SpeechSynthesisUtterance(text);
+        function speak(txt) {
+            const u = new SpeechSynthesisUtterance(txt);
             u.lang = 'ja-JP';
             u.rate = document.getElementById('rate').value / 50;
             u.pitch = document.getElementById('pitch').value / 50;
             window.speechSynthesis.speak(u);
         }
 
-        function connectLive() {
+        function connect() {
             const btn = document.getElementById('startBtn');
-            const log = document.getElementById('log-area');
-            
-            if (con) con.disconnect(); // 既存の接続をクリーンアップ
-
+            const log = document.getElementById('log');
             btn.innerText = "同期中...";
-            btn.disabled = true;
-
-            con = new TikTokLiveConnector.WebcastPushConnection(tid, {
-                processInitialData: false,
-                enableExtendedGiftInfo: true
-            });
+            
+            // 接続エンジンを強化
+            const con = new TikTokLiveConnector.WebcastPushConnection(tid);
 
             con.connect().then(state => {
-                log.prepend(`✅ @${tid} に接続しました！\n`);
-                btn.innerText = "接続中 (ON)";
+                log.prepend(`✅ @${tid} 接続成功\n`);
+                btn.innerText = "同期中 (ON)";
                 btn.style.background = "#2ecc71";
-                btn.disabled = false;
-                
                 if(state.roomInfo && state.roomInfo.owner) {
-                    document.getElementById('user-avatar').src = state.roomInfo.owner.avatar_thumb.url_list[0];
-                    document.getElementById('display-name').innerText = state.roomInfo.owner.nickname;
+                    document.getElementById('avatar').src = state.roomInfo.owner.avatar_thumb.url_list[0];
                 }
-                speak("正常に接続しました。");
-            }).catch(err => {
-                log.prepend(`❌ 接続失敗: 配信が開始されているか確認してください。\n`);
+                speak("マックトック、準備完了。");
+            }).catch(e => {
+                log.prepend(`❌ 接続失敗。配信中か確認してください。\n`);
                 btn.innerText = "再試行";
-                btn.disabled = false;
-                btn.style.background = var(--primary);
             });
 
             con.on('chat', d => {
@@ -169,22 +166,9 @@
             });
 
             con.on('gift', d => {
-                const min = parseInt(document.getElementById('minC').value);
-                if(!document.getElementById('gOn').checked || d.diamondCount < min) return;
-                log.prepend(`[GIFT] ${d.nickname}が${d.giftName}を送りました\n`);
+                if(!document.getElementById('gOn').checked || d.diamondCount < document.getElementById('minC').value) return;
+                log.prepend(`[GIFT] ${d.nickname}: ${d.giftName}\n`);
                 speak(`${d.nickname}さん、${d.giftName}ありがとう！`);
-            });
-
-            con.on('follow', d => {
-                if(!document.getElementById('fOn').checked) return;
-                log.prepend(`[FOLLOW] ${d.nickname}にフォローされました\n`);
-                speak(`${d.nickname}さん、フォローありがとうございます！`);
-            });
-
-            con.on('disconnected', () => {
-                log.prepend(`⚠️ 接続が切断されました。再接続してください。\n`);
-                btn.innerText = "再接続する";
-                btn.style.background = var(--primary);
             });
         }
     </script>
