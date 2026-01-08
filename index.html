@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-    <title>TikTok Live Reader Pro</title>
+    <title>LIVE READER PRO【最終安定版】</title>
     <style>
         :root { --main: #ff0050; --sub: #00f2ea; --bg: #0d0d0d; }
         body { background: var(--bg); color: #fff; font-family: sans-serif; margin: 0; padding: 20px; text-align: center; }
@@ -14,83 +14,109 @@
             padding: 25px;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        h1 { font-size: 24px; background: linear-gradient(90deg, var(--main), var(--sub)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: bold; }
+        h1 { font-size: 24px; background: linear-gradient(90deg, var(--main), var(--sub)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: bold; margin: 0; }
         input {
             width: 100%; padding: 15px; background: #000; border: 1px solid #333; border-radius: 12px;
-            color: #fff; font-size: 18px; text-align: center; margin: 20px 0; box-sizing: border-box;
+            color: #fff; font-size: 18px; text-align: center; margin: 20px 0; box-sizing: border-box; outline: none;
         }
+        input:focus { border-color: var(--sub); }
         .btn {
             width: 100%; padding: 20px; border-radius: 12px; border: none; font-weight: bold; font-size: 20px;
             cursor: pointer; color: #fff; background: linear-gradient(45deg, var(--main), #ff4d79);
             box-shadow: 0 4px 15px rgba(255, 0, 80, 0.4);
         }
-        #log { background: #000; height: 250px; overflow-y: auto; border-radius: 12px; padding: 15px; text-align: left; font-size: 12px; margin-top: 20px; border: 1px solid #222; color: #0f0; }
-        /* ビデオは1x1ピクセルにして見えなくしますが、存在させる必要があります */
-        video { width: 1px; height: 1px; position: absolute; top: 0; left: 0; opacity: 0; }
+        .btn:active { transform: scale(0.98); }
+        #status { font-size: 14px; color: var(--sub); margin-top: 15px; font-weight: bold; }
+        #log {
+            background: #000; height: 300px; overflow-y: auto; border-radius: 12px;
+            padding: 15px; text-align: left; font-size: 12px; margin-top: 20px;
+            border: 1px solid #222; color: #0f0; line-height: 1.5;
+        }
+        /* 小窓用のビデオ（1x1ピクセルで隠す） */
+        video { width: 1px; height: 1px; position: absolute; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
     <div class="glass-card">
         <h1>LIVE READER PRO</h1>
-        <input type="text" id="idInput" placeholder="TikTok ID" value="sena..222">
-        <button class="btn" id="startBtn">起動 ＆ 接続</button>
-        <p style="font-size:11px; color:#888; margin-top:10px;">ボタンを押すと音声と小窓が有効化されます</p>
+        <input type="text" id="idInput" placeholder="TikTok ID (@なし)" value="creok.farm">
+        <button class="btn" id="startBtn">起動 ＆ 接続開始</button>
+        <div id="status">● システム待機中</div>
     </div>
 
     <video id="v" playsinline muted loop src="https://www.w3schools.com/html/mov_bbb.mp4"></video>
     
-    <div id="log">ログ待機中...</div>
+    <div id="log">ログ待機中... 電波の良い場所でボタンを押してください。</div>
 
-    <script src="https://unpkg.com/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js"></script>
     <script>
         const v = document.getElementById('v');
         const log = document.getElementById('log');
+        const status = document.getElementById('status');
         const btn = document.getElementById('startBtn');
 
-        function addLog(m) {
+        function addLog(m, color = "#0f0") {
             const d = document.createElement('div');
+            d.style.color = color;
             d.innerText = `[${new Date().toLocaleTimeString()}] ${m}`;
             log.prepend(d);
         }
 
         btn.onclick = async () => {
             const tid = document.getElementById('idInput').value.trim();
-            addLog("システムを起動します...");
+            addLog(">>> 処理を開始します...");
             
-            // 1. 音声と小窓のロックを解除
+            // 1. 音声と小窓の有効化（iPhone制限解除）
             try {
                 await v.play();
                 if (v.webkitSetPresentationMode) {
                     v.webkitSetPresentationMode("picture-in-picture");
                 }
-                // テスト発声
                 const ut = new SpeechSynthesisUtterance("読み上げを開始します");
                 ut.lang = 'ja-JP';
                 window.speechSynthesis.speak(ut);
                 addLog("✅ 音声と小窓を有効化しました");
             } catch (e) {
-                addLog("⚠️ 小窓失敗。電波の良い場所で再試行してください。");
+                addLog("⚠️ 小窓に失敗しました。電波環境を確認してください。", "#f00");
             }
 
-            // 2. TikTok接続
+            // 2. TikTok接続（部品チェック）
             if (typeof TikTokLiveConnector === 'undefined') {
-                addLog("❌ 部品が読み込めません。再読み込みしてください。");
+                addLog("❌ まだ接続部品がダウンロードできていません。電波の良い場所でページを更新してください。", "#ff0");
+                status.innerText = "❌ 部品読み込みエラー";
                 return;
             }
 
+            // 3. 実際の接続処理
             try {
+                addLog(`${tid} に接続中...`);
                 const con = new TikTokLiveConnector.WebcastPushConnection(tid);
-                con.connect().then(() => {
-                    addLog("✅ TikTokに接続！配信を監視中...");
-                }).catch(err => addLog("❌ IDミスか配信外です"));
+                
+                con.connect().then(state => {
+                    status.innerText = "✅ 接続完了！配信を監視中";
+                    status.style.color = "#00f2ea";
+                    addLog("✅ TikTokサーバーと接続しました！", "#00f2ea");
+                }).catch(err => {
+                    addLog("❌ 接続失敗。IDが間違っているか、配信が終了しています。", "#f00");
+                });
 
                 con.on('chat', data => {
                     addLog(`${data.nickname}: ${data.comment}`);
-                    const m = new SpeechSynthesisUtterance(`${data.comment}`);
+                    const m = new SpeechSynthesisUtterance(`${data.nickname}さん、${data.comment}`);
                     m.lang = 'ja-JP';
                     window.speechSynthesis.speak(m);
                 });
-            } catch (e) { addLog("エラー: " + e.message); }
+
+                con.on('gift', data => {
+                    addLog(`🎁 ${data.nickname}さんがギフト！`);
+                    const m = new SpeechSynthesisUtterance(`${data.nickname}さん、ギフトありがとうございます！`);
+                    m.lang = 'ja-JP';
+                    window.speechSynthesis.speak(m);
+                });
+
+            } catch (e) {
+                addLog("システムエラー: " + e.message, "#f00");
+            }
         };
     </script>
 </body>
