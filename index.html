@@ -2,148 +2,161 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-    <title>macfinity ULTIMATE</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
+    <title>macfinity PRO</title>
     <style>
         :root { --primary: #ff0050; --accent: #ffb703; --bg: #0f1115; --card: #1c2128; --border: #2f3338; }
-        body { background: var(--bg); color: #fff; font-family: -apple-system, sans-serif; margin: 0; padding-bottom: env(safe-area-inset-bottom); }
+        body { background: var(--bg); color: #fff; font-family: -apple-system, sans-serif; margin: 0; overflow-x: hidden; }
         
-        /* ナビゲーション */
-        .header { background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
-        .logo-area { display: flex; align-items: center; padding: 12px 15px; }
-        .logo-icon { width: 32px; height: 32px; background: linear-gradient(45deg, var(--primary), #00f2ea); border-radius: 8px; margin-right: 12px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; }
-        
-        /* タブ切り替え（ホーム・アラート・TTS） */
-        .tabs { display: flex; background: var(--card); border-bottom: 1px solid var(--border); }
-        .tab { flex: 1; text-align: center; padding: 14px; font-size: 13px; color: #888; cursor: pointer; border-bottom: 3px solid transparent; }
+        /* ログイン画面 (初期状態) */
+        #login-screen { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+        .login-card { background: var(--card); padding: 40px 20px; border-radius: 20px; width: 100%; max-width: 350px; border: 1px solid var(--border); }
+        .btn-tiktok { background: #000; color: #fff; border: 1px solid var(--border); padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+        /* メイン画面 */
+        .app-container { display: none; }
+        .header { background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; padding-top: env(safe-area-inset-top); }
+        .nav-tabs { display: flex; }
+        .tab { flex: 1; text-align: center; padding: 15px; font-size: 13px; color: #888; border-bottom: 3px solid transparent; }
         .tab.active { color: #fff; border-bottom-color: var(--primary); font-weight: bold; }
 
         /* コンテンツ */
-        .content { display: none; padding: 15px; max-width: 550px; margin: auto; }
-        .content.active { display: block; }
-        .card { background: var(--card); border-radius: 12px; padding: 18px; margin-bottom: 15px; border: 1px solid var(--border); }
-        .card-h { font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 15px; font-weight: bold; letter-spacing: 1px; }
-
-        /* 入力UI */
-        input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; background: #000; border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 16px; box-sizing: border-box; margin-bottom: 10px; }
-        .btn-start { width: 100%; padding: 18px; background: #d63384; border: none; border-radius: 10px; color: #fff; font-weight: bold; font-size: 16px; cursor: pointer; }
-        .row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #2a2e33; }
-        input[type="range"] { width: 100%; accent-color: var(--accent); }
-        input[type="checkbox"] { width: 40px; height: 20px; accent-color: #2ecc71; }
+        .page { display: none; padding: 15px; max-width: 500px; margin: auto; }
+        .page.active { display: block; }
+        .card { background: var(--card); border-radius: 15px; padding: 20px; margin-bottom: 15px; border: 1px solid var(--border); }
+        .card-h { font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 15px; font-weight: bold; display: flex; justify-content: space-between; }
         
-        #log { background: #000; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 11px; height: 180px; overflow-y: auto; color: #0f0; border: 1px solid var(--border); margin-top: 10px; line-height: 1.5; }
+        /* 入力・スイッチ */
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 12px; background: #000; border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 16px; box-sizing: border-box; margin-top: 5px; }
+        .btn-main { width: 100%; padding: 18px; background: var(--primary); border: none; border-radius: 12px; color: #fff; font-weight: bold; font-size: 16px; margin-top: 10px; }
+        .row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #2a2e33; }
+        .badge-free { background: #2ecc71; font-size: 9px; padding: 2px 6px; border-radius: 4px; color: #fff; }
+
+        #log-area { background: #000; border-radius: 10px; padding: 12px; font-family: monospace; font-size: 11px; height: 150px; overflow-y: auto; color: #0f0; border: 1px solid var(--border); margin-top: 10px; }
+        .logout-btn { color: var(--primary); font-size: 13px; text-align: center; margin-top: 30px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="logo-area"><div class="logo-icon">mac</div><h1 style="font-size: 17px; margin: 0;">macfinity</h1></div>
-        <div class="tabs">
-            <div class="tab active" onclick="tab('home')">ホーム</div>
-            <div class="tab" onclick="tab('alerts')">アラート</div>
-            <div class="tab" onclick="tab('tts')">TTS/スパム</div>
+    <div id="login-screen">
+        <div class="login-card">
+            <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">LIVE READER <span style="color:var(--primary)">PRO</span></div>
+            <p style="color: #888; font-size: 14px;">TikTokアカウントでログインして<br>全機能を無料で有効化します</p>
+            <input type="text" id="loginId" placeholder="TikTok ID (例: creok.farm)" style="text-align: center;">
+            <button class="btn-tiktok" onclick="login()">TikTokでログイン</button>
         </div>
     </div>
 
-    <div id="home" class="content active">
-        <div class="card">
-            <div class="card-h">接続設定</div>
-            <input type="text" id="uid" value="creok.farm" placeholder="TikTok ID (@なし)">
-            <button class="btn-start" id="start">サウンドアラートと読み上げを開始</button>
+    <div class="app-container" id="app">
+        <div class="header">
+            <div style="padding: 15px; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width:30px; height:30px; background:var(--primary); border-radius:5px;"></div>
+                    <span style="font-weight:bold;" id="displayId">macfinity</span>
+                </div>
+                <span class="badge-free">PREMIUM UNLOCKED</span>
+            </div>
+            <div class="nav-tabs">
+                <div class="tab active" onclick="showPage('home', this)">ホーム</div>
+                <div class="tab" onclick="showPage('alert', this)">アラート</div>
+                <div class="tab" onclick="showPage('tts', this)">TTS / スパム</div>
+            </div>
         </div>
-        <div class="card">
-            <div class="card-h">ライブログ</div>
-            <div id="log">システム待機中...</div>
-        </div>
-    </div>
 
-    <div id="alerts" class="content">
-        <div class="card">
-            <div class="card-h">サウンドアラート有効化</div>
-            <div class="row"><span>フォローする</span><input type="checkbox" id="fOn" checked></div>
-            <div class="row"><span>あらゆるギフト</span><input type="checkbox" id="gOn" checked></div>
-            <div class="row"><span>シェアする</span><input type="checkbox" id="sOn" checked></div>
-            <div class="row"><span>LIVE入室</span><input type="checkbox" id="jOn"></div>
+        <div id="home" class="page active">
+            <div class="card">
+                <div class="card-h">接続ステータス</div>
+                <button class="btn-main" id="connBtn">起動 ＆ 接続</button>
+                <p style="font-size: 11px; color: #888; text-align: center; margin-top: 10px;">ボタンを押すと音声とログが有効化されます</p>
+            </div>
+            <div class="card">
+                <div class="card-h">ライブログ</div>
+                <div id="log-area">ログ待機中...</div>
+            </div>
+            <div class="logout-btn" onclick="logout()">ログアウト</div>
         </div>
-    </div>
 
-    <div id="tts" class="content">
-        <div class="card">
-            <div class="card-h">音声設定</div>
-            <div style="margin-bottom:15px;">速度: <span id="sv">50</span><input type="range" id="speed" min="10" max="100" value="50"></div>
-            <div>ピッチ: <span id="pv">50</span><input type="range" id="pitch" min="10" max="100" value="50"></div>
+        <div id="alert" class="page">
+            <div class="card">
+                <div class="card-h">通知設定</div>
+                <div class="row"><span>あらゆるギフト</span><input type="checkbox" id="gOn" checked></div>
+                <div class="row"><span>フォローする</span><input type="checkbox" id="fOn" checked></div>
+                <div class="row"><span>シェア・入室</span><input type="checkbox" id="sOn"></div>
+            </div>
         </div>
-        <div class="card">
-            <div class="card-h">スパム対策・制限</div>
-            <div class="row"><span>最低コイン数</span><input type="number" id="minC" value="1" style="width:80px; margin:0;"></div>
-            <div class="row"><span>クールダウン(秒)</span><input type="number" id="cd" value="3" style="width:80px; margin:0;"></div>
-            <div class="row"><span>チャット読み上げ</span><input type="checkbox" id="cOn" checked></div>
-        </div>
-        <div class="card">
-            <div class="card-h">テキストテンプレート</div>
-            <textarea id="tplG" rows="2">{nickname}さん、{giftName}ありがとう！</textarea>
+
+        <div id="tts" class="page">
+            <div class="card">
+                <div class="card-h">音声カスタマイズ</div>
+                <div class="row"><span>速度</span><input type="range" id="sp" min="10" max="100" value="50"></div>
+                <div class="row"><span>ピッチ</span><input type="range" id="pt" min="10" max="100" value="50"></div>
+            </div>
+            <div class="card">
+                <div class="card-h">スパム対策 (PRO機能)</div>
+                <div class="row"><span>ユーザークールダウン(秒)</span><input type="number" id="cd" value="0" style="width:60px;"></div>
+                <div class="row"><span>最低コイン数</span><input type="number" id="minC" value="0" style="width:60px;"></div>
+                <div class="row"><span>スパムフィルタ</span><input type="checkbox" checked></div>
+            </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/tiktok-live-connect@0.1.1/dist/browser/tiktok-live-connect.min.js"></script>
     <script>
-        function tab(id) {
-            document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            event.currentTarget.classList.add('active');
+        let currentUserId = "";
+        let userLastAction = {};
+
+        function login() {
+            const id = document.getElementById('loginId').value.trim();
+            if(!id) return alert("IDを入力してください");
+            currentUserId = id;
+            document.getElementById('displayId').innerText = id;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
         }
 
-        const log = document.getElementById('log'), btn = document.getElementById('start');
-        const speed = document.getElementById('speed'), pitch = document.getElementById('pitch');
-        let userLastTime = {};
+        function logout() {
+            location.reload();
+        }
 
-        speed.oninput = () => document.getElementById('sv').innerText = speed.value;
-        pitch.oninput = () => document.getElementById('pv').innerText = pitch.value;
+        function showPage(id, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            el.classList.add('active');
+        }
 
         function speak(txt) {
             const u = new SpeechSynthesisUtterance(txt);
             u.lang = 'ja-JP';
-            u.rate = speed.value / 50;
-            u.pitch = pitch.value / 50;
+            u.rate = document.getElementById('sp').value / 50;
+            u.pitch = document.getElementById('pt').value / 50;
             window.speechSynthesis.speak(u);
         }
 
-        btn.onclick = () => {
-            const id = document.getElementById('uid').value.trim();
-            log.innerText = `Connecting... @${id}\n`;
-            speak("マックフィニティを起動します。全機能無料モードです。");
+        document.getElementById('connBtn').onclick = () => {
+            const log = document.getElementById('log-area');
+            log.prepend(`[${new Date().toLocaleTimeString()}] 🟢 システムを起動します...\n`);
+            speak("プロモードで接続を開始します。");
 
-            const con = new TikTokLiveConnector.WebcastPushConnection(id);
+            const con = new TikTokLiveConnector.WebcastPushConnection(currentUserId);
             con.connect().then(() => {
-                log.prepend(`[CONNECTED] ライブに同期しました\n`);
-                btn.style.background = "#28a745"; btn.innerText = "同期中 (ON)";
-            }).catch(() => log.prepend(`[ERROR] IDを確認してください\n`));
-
-            function checkSpam(uid) {
-                const now = Date.now();
-                const limit = document.getElementById('cd').value * 1000;
-                if(userLastTime[uid] && (now - userLastTime[uid] < limit)) return true;
-                userLastTime[uid] = now; return false;
-            }
+                log.prepend(`[${new Date().toLocaleTimeString()}] ✅ 接続完了: @${currentUserId}\n`);
+                document.getElementById('connBtn').innerText = "同期中 (ON)";
+                document.getElementById('connBtn').style.background = "#2ecc71";
+            }).catch(() => log.prepend(`[${new Date().toLocaleTimeString()}] ❌ 接続エラー\n`));
 
             con.on('chat', d => {
-                if(!document.getElementById('cOn').checked || checkSpam(d.uniqueId)) return;
+                const limit = document.getElementById('cd').value * 1000;
+                if(userLastAction[d.uniqueId] && (Date.now() - userLastAction[d.uniqueId] < limit)) return;
+                userLastAction[d.uniqueId] = Date.now();
                 log.prepend(`[CHAT] ${d.nickname}: ${d.comment}\n`);
                 speak(`${d.nickname}、${d.comment}`);
             });
 
             con.on('gift', d => {
                 if(!document.getElementById('gOn').checked || d.diamondCount < document.getElementById('minC').value) return;
-                let m = document.getElementById('tplG').value.replace('{nickname}', d.nickname).replace('{giftName}', d.giftName);
                 log.prepend(`[GIFT] ${d.nickname}: ${d.giftName}\n`);
-                speak(m);
-            });
-
-            con.on('follow', d => {
-                if(!document.getElementById('fOn').checked || checkSpam(d.uniqueId)) return;
-                log.prepend(`[FOLLOW] ${d.nickname}\n`);
-                speak(`${d.nickname}さん、フォローありがとう！`);
+                speak(`${d.nickname}さん、${d.giftName}ありがとうございます！`);
             });
         };
     </script>
