@@ -1,115 +1,142 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
-    <title>Mac tok PRO</title>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
-    <style>
-        :root { --primary: #ff0050; --bg: #000000; --input-bg: #1a1a1a; --text: #ffffff; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; overflow: hidden; height: 100vh; }
-        
-        /* ログイン画面のデザイン修正 */
-        #login-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-        .logo-container { text-align: center; margin-bottom: 40px; }
-        .logo-main { font-size: 42px; font-weight: 800; letter-spacing: -1.5px; display: inline-block; }
-        .logo-pro { color: var(--primary); margin-left: 2px; }
-        .sub-text { color: #555; font-size: 14px; margin-top: 8px; font-weight: 500; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobile TikFinity</title>
 
-        .input-field { width: 85%; max-width: 320px; padding: 20px; background: var(--input-bg); border: 1px solid #333; border-radius: 14px; color: #fff; font-size: 17px; text-align: center; margin-bottom: 20px; outline: none; }
-        .btn-pink { width: 85%; max-width: 320px; padding: 20px; background: var(--primary); border: none; border-radius: 50px; color: #fff; font-weight: bold; font-size: 17px; box-shadow: 0 4px 20px rgba(255, 0, 80, 0.5); cursor: pointer; }
-
-        /* メイン画面（画像2枚目以降を想定） */
-        #app { display: none; height: 100vh; flex-direction: column; }
-        .header { padding: 50px 20px 20px; background: #111; border-bottom: 1px solid #222; }
-        .user-id-display { font-size: 22px; font-weight: bold; }
-        .main-content { flex: 1; padding: 20px; overflow-y: auto; }
-        .log-box { background: #050505; color: #2ecc71; font-family: monospace; font-size: 12px; padding: 15px; border-radius: 12px; height: 250px; border: 1px solid #222; margin-top: 20px; }
-    </style>
+<style>
+:root{
+  --bg:#000;
+  --card:#111;
+  --main:#ff0050;
+  --text:#fff;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont;
+}
+header{
+  padding:18px;
+  text-align:center;
+  border-bottom:1px solid #222;
+}
+h1{margin:0;font-size:20px}
+.container{padding:15px}
+input{
+  width:100%;
+  padding:14px;
+  margin-bottom:10px;
+  border-radius:12px;
+  border:1px solid #333;
+  background:#111;
+  color:#fff;
+  font-size:15px;
+  text-align:center;
+}
+button{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:30px;
+  background:var(--main);
+  color:#fff;
+  font-size:15px;
+  font-weight:bold;
+}
+button.off{background:#333}
+.log{
+  margin-top:12px;
+  background:#080808;
+  border-radius:14px;
+  padding:10px;
+  height:55vh;
+  overflow-y:auto;
+  font-size:12px;
+  font-family:monospace;
+}
+.log div{margin-bottom:6px}
+</style>
 </head>
+
 <body>
 
-    <div id="login-screen">
-        <div class="logo-container">
-            <div class="logo-main">Mac tok<span class="logo-pro">PRO</span></div>
-            <div class="sub-text">Security Bypass Engine v2.0</div>
-        </div>
-        <input type="text" id="target-id" class="input-field" value="mac.d.onald.no1">
-        <button class="btn-pink" onclick="startSystem()">システム認証 / ログイン</button>
-    </div>
+<header>
+  <h1>📱 Mobile TikFinity</h1>
+</header>
 
-    <div id="app">
-        <div class="header">
-            <div style="font-size: 11px; color: #888; margin-bottom: 5px;">CONNECTED AS</div>
-            <div class="user-id-display" id="display-id">@mac.d.onald.no1</div>
-        </div>
-        <div class="main-content">
-            <button class="btn-pink" id="connBtn" onclick="runTurbo()">LIVE同期を最速で開始</button>
-            <div id="log-window" class="log-box">システム待機中...</div>
-        </div>
-    </div>
+<div class="container">
+  <input id="userId" placeholder="TikTok ID（表示用）">
+  <button id="toggleBtn" onclick="toggle()">▶ 読み上げ ON</button>
 
-    <script src="https://cdn.jsdelivr.net/npm/tiktok-live-connect@0.1.4/dist/browser/tiktok-live-connect.min.js"></script>
-    <script>
-        // 勝手に他画面へ飛ぶのを防ぐ
-        window.addEventListener('popstate', function (event) {
-            history.pushState(null, document.title, location.href);
-        });
-        history.pushState(null, document.title, location.href);
+  <div class="log" id="log">
+    <div>System Ready...</div>
+  </div>
+</div>
 
-        let tid = "";
-        let connection = null;
+<script>
+let active = false;
+let ws = null;
 
-        function startSystem() {
-            tid = document.getElementById('target-id').value.trim().replace('@','');
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('app').style.display = 'flex';
-            document.getElementById('display-id').innerText = "@" + tid;
-        }
+/* ▶ ON / OFF */
+function toggle(){
+  active = !active;
+  const btn = document.getElementById("toggleBtn");
+  btn.innerText = active ? "■ 読み上げ OFF" : "▶ 読み上げ ON";
+  btn.className = active ? "off" : "";
+  addLog(active ? "🔊 読み上げ開始" : "🔇 読み上げ停止");
 
-        async function runTurbo() {
-            const btn = document.getElementById('connBtn');
-            const log = document.getElementById('log-window');
-            btn.innerText = "同期経路を確立中...";
-            btn.disabled = true;
+  if(active && !ws){
+    connect();
+  }
+}
 
-            try {
-                if (connection) connection.disconnect();
-                connection = new TikTokLiveConnector.WebcastPushConnection(tid);
-                
-                await connection.connect();
-                log.innerHTML = "✅ 同期完了。音声エンジンを起動しました。<br>" + log.innerHTML;
-                btn.innerText = "同期中 (ONLINE)";
-                btn.style.background = "#2ecc71";
-                btn.style.boxShadow = "0 4px 20px rgba(46, 204, 113, 0.5)";
+/* 🌐 クラウドに接続 */
+function connect(){
+  // ★ここをあなたのサーバーURLに変更
+  ws = new WebSocket("wss://YOUR-SERVER-URL");
 
-                // 音声読み上げ
-                const speak = (msg) => {
-                    const u = new SpeechSynthesisUtterance(msg);
-                    u.lang = 'ja-JP';
-                    window.speechSynthesis.speak(u);
-                };
+  ws.onopen = () => addLog("🌐 サーバー接続成功");
 
-                speak("システム正常稼働。");
+  ws.onmessage = (e)=>{
+    if(!active) return;
+    const data = JSON.parse(e.data);
 
-                connection.on('chat', d => {
-                    log.innerHTML = `[CHAT] ${d.nickname}: ${d.comment}<br>` + log.innerHTML;
-                    speak(`${d.nickname}、${d.comment}`);
-                });
+    if(data.type === "comment"){
+      addLog("💬 " + data.user + ": " + data.text);
+      speak(data.user + "、" + data.text);
+    }
 
-                connection.on('gift', d => {
-                    log.innerHTML = `<span style="color:#ff0050">[GIFT] ${d.nickname}: ${d.giftName}</span><br>` + log.innerHTML;
-                    speak(`${d.nickname}さん、${d.giftName}ありがとう！`);
-                });
+    if(data.type === "gift"){
+      addLog("🎁 " + data.user + " " + data.gift);
+      speak(data.user + "、" + data.gift + "ありがとう");
+    }
+  };
 
-            } catch (e) {
-                log.innerHTML = "❌ 失敗: 配信を開始してから再試行してください。<br>" + log.innerHTML;
-                btn.innerText = "再試行する";
-                btn.disabled = false;
-            }
-        }
-    </script>
+  ws.onclose = ()=>{
+    addLog("❌ 接続が切れました");
+    ws = null;
+  };
+}
+
+/* 📝 ログ表示 */
+function addLog(text){
+  const log = document.getElementById("log");
+  const div = document.createElement("div");
+  div.textContent = "["+new Date().toLocaleTimeString()+"] "+text;
+  log.prepend(div);
+}
+
+/* 🔊 読み上げ */
+function speak(text){
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ja-JP";
+  speechSynthesis.speak(u);
+}
+</script>
+
 </body>
 </html>
