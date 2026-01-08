@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Mobile TikFinity</title>
 
 <style>
@@ -17,124 +17,137 @@ body{
   margin:0;
   background:var(--bg);
   color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont;
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
 }
 header{
-  padding:18px;
+  padding:16px;
   text-align:center;
-  border-bottom:1px solid #222;
+  font-weight:800;
+  font-size:22px;
 }
-h1{margin:0;font-size:20px}
-.container{padding:15px}
-input{
+.card{
+  background:var(--card);
+  margin:12px;
+  padding:14px;
+  border-radius:14px;
+}
+input,button{
   width:100%;
   padding:14px;
-  margin-bottom:10px;
-  border-radius:12px;
-  border:1px solid #333;
-  background:#111;
+  border-radius:10px;
+  border:none;
+  font-size:16px;
+}
+input{
+  background:#000;
   color:#fff;
-  font-size:15px;
-  text-align:center;
+  border:1px solid #333;
 }
 button{
-  width:100%;
-  padding:14px;
-  border:none;
-  border-radius:30px;
   background:var(--main);
   color:#fff;
-  font-size:15px;
-  font-weight:bold;
+  font-weight:700;
 }
-button.off{background:#333}
-.log{
-  margin-top:12px;
-  background:#080808;
-  border-radius:14px;
-  padding:10px;
-  height:55vh;
-  overflow-y:auto;
-  font-size:12px;
+#log{
   font-family:monospace;
+  font-size:12px;
+  max-height:40vh;
+  overflow:auto;
 }
-.log div{margin-bottom:6px}
+.log-item{
+  margin-bottom:6px;
+}
+.status{
+  font-size:12px;
+  color:#0f0;
+}
 </style>
 </head>
 
 <body>
 
-<header>
-  <h1>📱 Mobile TikFinity</h1>
-</header>
+<header>📱 Mobile TikFinity</header>
 
-<div class="container">
-  <input id="userId" placeholder="TikTok ID（表示用）">
-  <button id="toggleBtn" onclick="toggle()">▶ 読み上げ ON</button>
+<div class="card">
+  <input id="tid" placeholder="TikTok ID（@なし）">
+  <button onclick="connect()">接続する</button>
+  <div id="status" class="status">未接続</div>
+</div>
 
-  <div class="log" id="log">
-    <div>System Ready...</div>
-  </div>
+<div class="card">
+  <strong>ログ</strong>
+  <div id="log"></div>
 </div>
 
 <script>
-let active = false;
-let ws = null;
+/* ===== 設定 ===== */
+const WS_URL = "wss://あなたのRenderやRailwayのURL"; 
+let ws;
+let ttsOn = true;
 
-/* ▶ ON / OFF */
-function toggle(){
-  active = !active;
-  const btn = document.getElementById("toggleBtn");
-  btn.innerText = active ? "■ 読み上げ OFF" : "▶ 読み上げ ON";
-  btn.className = active ? "off" : "";
-  addLog(active ? "🔊 読み上げ開始" : "🔇 読み上げ停止");
-
-  if(active && !ws){
-    connect();
-  }
+/* ===== ログ ===== */
+function log(msg,color="#fff"){
+  const d=document.createElement("div");
+  d.className="log-item";
+  d.style.color=color;
+  d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
+  document.getElementById("log").prepend(d);
 }
 
-/* 🌐 クラウドに接続 */
-function connect(){
-  // ★ここをあなたのサーバーURLに変更
-  ws = new WebSocket("wss://YOUR-SERVER-URL");
-
-  ws.onopen = () => addLog("🌐 サーバー接続成功");
-
-  ws.onmessage = (e)=>{
-    if(!active) return;
-    const data = JSON.parse(e.data);
-
-    if(data.type === "comment"){
-      addLog("💬 " + data.user + ": " + data.text);
-      speak(data.user + "、" + data.text);
-    }
-
-    if(data.type === "gift"){
-      addLog("🎁 " + data.user + " " + data.gift);
-      speak(data.user + "、" + data.gift + "ありがとう");
-    }
-  };
-
-  ws.onclose = ()=>{
-    addLog("❌ 接続が切れました");
-    ws = null;
-  };
-}
-
-/* 📝 ログ表示 */
-function addLog(text){
-  const log = document.getElementById("log");
-  const div = document.createElement("div");
-  div.textContent = "["+new Date().toLocaleTimeString()+"] "+text;
-  log.prepend(div);
-}
-
-/* 🔊 読み上げ */
+/* ===== 音声 ===== */
 function speak(text){
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "ja-JP";
+  if(!ttsOn) return;
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang="ja-JP";
   speechSynthesis.speak(u);
+}
+
+/* ===== 接続 ===== */
+function connect(){
+  const user=document.getElementById("tid").value.trim();
+  if(!user){alert("IDを入力してください");return;}
+
+  ws=new WebSocket(WS_URL);
+
+  ws.onopen=()=>{
+    document.getElementById("status").textContent="接続中…";
+    ws.send(JSON.stringify({type:"start",user}));
+  };
+
+  ws.onmessage=e=>{
+    const d=JSON.parse(e.data);
+
+    if(d.type==="status"){
+      document.getElementById("status").textContent="🟢 接続成功";
+      log("接続成功","#0f0");
+    }
+
+    if(d.type==="chat"){
+      log(`${d.user}: ${d.text}`);
+      if(d.text==="!off") ttsOn=false;
+      else if(d.text==="!on") ttsOn=true;
+      else speak(`${d.user}、${d.text}`);
+    }
+
+    if(d.type==="gift"){
+      log(`🎁 ${d.user} → ${d.gift}`,"#ff0050");
+      speak(`${d.user}さん、${d.gift}ありがとう`);
+    }
+
+    if(d.type==="join"){
+      log(`➕ ${d.user} 入室`,"#0af");
+      speak(`${d.user}さんいらっしゃい`);
+    }
+
+    if(d.type==="follow"){
+      log(`⭐ ${d.user} フォロー`,"#ff0");
+      speak(`${d.user}フォローありがとう`);
+    }
+  };
+
+  ws.onerror=()=>{
+    log("接続エラー","#f00");
+  };
 }
 </script>
 
