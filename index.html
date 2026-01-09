@@ -6,59 +6,103 @@
     <title>Mac tok PRO</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
         .login-card { width: 90%; max-width: 400px; text-align: center; }
         .title { font-size: 3rem; font-weight: 900; margin-bottom: 5px; }
         .title span { color: #ff0050; }
         .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 40px; }
-        input { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #1a1a1a; color: #fff; text-align: center; margin-bottom: 20px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #ff0050; color: #fff; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
-        #log { height: 150px; overflow-y: auto; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 20px; padding: 10px; font-size: 0.8rem; display: none; text-align: left; }
+        input { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #1a1a1a; color: #fff; font-size: 1rem; text-align: center; margin-bottom: 20px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #ff0050; color: #fff; font-size: 1.1rem; font-weight: bold; }
+        /* ログエリア */
+        #log-area { display: none; width: 100%; margin-top: 20px; text-align: left; }
+        #log { height: 250px; overflow-y: auto; background: #0a0a0a; border: 1px solid #222; border-radius: 10px; padding: 10px; font-size: 0.85rem; display: flex; flex-direction: column-reverse; }
+        .comment { padding: 5px; border-bottom: 1px solid #111; }
+        .user { color: #00f2ea; font-weight: bold; }
     </style>
 </head>
 <body>
+
     <div class="login-card">
         <div class="title">Mac tok <span>PRO</span></div>
         <div class="subtitle">Security Bypass Engine v2.0</div>
+
         <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
-        <button class="btn" id="mainBtn" onclick="startEngine()">システム認証 / ログイン</button>
-        <div id="log"></div>
+        <button class="btn" id="loginBtn" onclick="login()">システム認証 / ログイン</button>
+
+        <div id="log-area">
+            <div id="log">システム待機中...</div>
+            <button onclick="video.requestPictureInPicture()" style="background:#333; color:#fff; width:100%; margin-top:10px; padding:10px; border-radius:8px; border:none;">小窓表示を起動</button>
+        </div>
     </div>
 
-    <canvas id="pipCanvas" width="400" height="500" style="display:none;"></canvas>
     <video id="pipVideo" autoplay muted playsinline style="width:1px; height:1px; opacity:0;"></video>
+    <canvas id="pipCanvas" width="400" height="500" style="display:none;"></canvas>
 
     <script>
-        const WS_URL = "https://mactok-engine.onrender.com"; // 👈 あなたのURL
-        let socket, messages = [];
+        // ★重要★ ここをあなたのRenderのURLに書き換えてください
+        const WS_URL = "https://mactok-engine.onrender.com"; 
+
+        let socket;
+        const log = document.getElementById('log');
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
         const video = document.getElementById('pipVideo');
+        let messages = [];
 
-        async function startEngine() {
+        async function login() {
             const id = document.getElementById('targetId').value.trim();
-            if(!id) return;
+            if(!id) return alert("IDを入力してください");
 
-            // 音声＆キャンバス準備
-            window.speechSynthesis.speak(new SpeechSynthesisUtterance("認証成功"));
+            // 1. 認証成功の声を出す
+            const u = new SpeechSynthesisUtterance("認証成功。システムを確立します。");
+            window.speechSynthesis.speak(u);
+
+            // 2. 小窓用の映像準備
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
             await video.play();
 
-            document.getElementById('log').style.display = "block";
-            connect(id);
+            // 3. 画面表示の切り替え
+            document.getElementById('log-area').style.display = "block";
+            document.getElementById('loginBtn').innerText = "ONLINE";
+            document.getElementById('loginBtn').style.background = "#00f2ea";
+
+            // 4. サーバーへ接続開始
+            startConnection(id);
         }
 
-        function connect(id) {
-            socket = io(WS_URL);
+        function startConnection(id) {
+            socket = io(WS_URL, { transports: ['websocket'] });
+
+            socket.on('connect', () => {
+                log.innerHTML = "<div>🟢 サーバー接続完了。ライブを監視します。</div>";
+                socket.emit('start', id);
+                setInterval(drawCanvas, 1000); // 小窓描画開始
+            });
+
             socket.on('chat', data => {
-                const div = document.createElement('div');
-                div.innerText = `${data.user}: ${data.text}`;
-                document.getElementById('log').prepend(div);
+                const html = `<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`;
+                log.insertAdjacentHTML('afterbegin', html);
+                messages.unshift(`${data.user}: ${data.text}`);
+                if(messages.length > 12) messages.pop();
+                
+                // 読み上げ
                 const u = new SpeechSynthesisUtterance(data.text);
                 u.lang = 'ja-JP';
                 window.speechSynthesis.speak(u);
             });
+
+            socket.on('connect_error', (err) => {
+                log.innerHTML = `<div style="color:red">❌ 接続失敗: ${err.message}</div>`;
+            });
+        }
+
+        function drawCanvas() {
+            ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#00f2ea"; ctx.font = "bold 22px Arial";
+            ctx.fillText("MacTok PRO Monitor", 20, 40);
+            ctx.fillStyle = "#fff"; ctx.font = "18px Arial";
+            messages.forEach((m, i) => ctx.fillText(m, 20, 90 + (i * 30)));
         }
     </script>
 </body>
