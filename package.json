@@ -1,17 +1,14 @@
 {
-  "name": "mobile-tikfinity",
+  "name": "mactok-engine",
   "version": "1.0.0",
-  "description": "Mobile TikFinity backend server with Socket.io",
+  "description": "TikTok Live Connector for Mac tok PRO",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "engines": {
-    "node": ">=18"
-  },
   "dependencies": {
     "express": "^4.18.2",
-    "tiktok-live-connector": "^0.1.8",
-    "socket.io": "^4.7.2"
+    "socket.io": "^4.7.2",
+    "tiktok-live-connect": "^0.1.4"
+  },
+  "scripts": {
+    "start": "node server.js"
   }
 }
