@@ -6,89 +6,132 @@
     <title>MacTok Pro Premium</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: 'Helvetica Neue', sans-serif; background: #050505; color: #fff; margin: 0; padding: 20px; overflow: hidden; }
-        .container { max-width: 500px; margin: 0 auto; }
-        h2 { text-align: center; color: #00f2ea; text-shadow: 0 0 10px #00f2ea; font-size: 1.2rem; }
-        
-        /* 入力エリア */
-        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #111; color: #fff; }
-        button { padding: 12px 20px; border-radius: 8px; border: none; background: #ff0050; color: #fff; font-weight: bold; cursor: pointer; }
-        
-        /* ログエリア */
-        #log { height: 70vh; overflow-y: auto; background: rgba(20, 20, 20, 0.8); border-radius: 15px; padding: 15px; border: 1px solid #222; }
-        .comment { margin-bottom: 12px; animation: fadeIn 0.3s ease; line-height: 1.4; }
-        .user { color: #00f2ea; font-weight: bold; font-size: 0.9rem; margin-right: 5px; }
-        .gift-msg { background: linear-gradient(90deg, #ff0050, #ff00d0); padding: 8px; border-radius: 8px; font-weight: bold; color: #fff; border: 1px solid #fff; }
-        
-        /* 小窓（PiP）用キャンバス（非表示） */
-        canvas { display: none; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        body { font-family: sans-serif; background: #000; color: #fff; margin: 0; padding: 10px; }
+        .header { display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #333; }
+        .timer { color: #00f2ea; font-family: monospace; font-size: 1.2rem; }
+        .controls { display: flex; gap: 5px; margin: 10px 0; }
+        input { flex: 1; padding: 10px; border-radius: 5px; background: #111; color: #fff; border: 1px solid #444; }
+        button { padding: 10px; border-radius: 5px; border: none; background: #ff0050; color: #fff; font-weight: bold; }
+        #log { height: 60vh; overflow-y: auto; border: 1px solid #222; margin-top: 10px; display: flex; flex-direction: column-reverse; }
+        .comment { padding: 5px; border-bottom: 1px solid #111; font-size: 0.9rem; }
+        .user { color: #00f2ea; font-weight: bold; }
+        .gift-msg { background: linear-gradient(45deg, #ff0050, #9000ff); padding: 8px; border-radius: 5px; margin: 5px; border: 1px solid #fff; }
+        /* 小窓用ビデオ（隠し） */
+        #pipVideo { width: 1px; height: 1px; opacity: 0; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>MacTok Pro Premium 🚀</h2>
-        <div class="controls">
-            <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
-            <button onclick="connect()">接続</button>
-            <button onclick="startPiP()" id="pipBtn" style="background: #444;">小窓</button>
-        </div>
-        <div id="log"></div>
+    <div class="header">
+        <div id="status">🔴 未接続</div>
+        <div class="timer" id="timer">00:00:00</div>
     </div>
 
-    <video id="pipVideo" autoplay muted playsinline style="display:none;"></video>
-    <canvas id="pipCanvas" width="400" height="600"></canvas>
+    <div class="controls">
+        <input type="text" id="targetId" placeholder="TikTok ID">
+        <button onclick="connect()">開始</button>
+        <button onclick="initVoice()" style="background: #00f2ea; color: #000;">🔊 音声ON</button>
+        <button onclick="togglePiP()" id="pipBtn" style="background: #444;">📺 小窓</button>
+    </div>
+
+    <div id="log"></div>
+
+    <canvas id="pipCanvas" width="400" height="500" style="display:none;"></canvas>
+    <video id="pipVideo" autoplay muted playsinline></video>
 
     <script>
-        const WS_URL = "wss://mactok-engine.onrender.com"; 
-        let socket;
-        const logDiv = document.getElementById('log');
+        const WS_URL = "https://mactok-engine.onrender.com";
+        let socket, startTime, timerInterval;
+        let isVoiceEnabled = false;
+        let messages = [];
+
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
         const video = document.getElementById('pipVideo');
+
+        function initVoice() {
+            const u = new SpeechSynthesisUtterance("読み上げを開始します");
+            u.lang = 'ja-JP';
+            window.speechSynthesis.speak(u);
+            isVoiceEnabled = true;
+            alert("音声と小窓の準備が完了しました。接続後に「小窓」ボタンを押してください。");
+        }
+
+        function speak(text) {
+            if (!isVoiceEnabled) return;
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'ja-JP';
+            u.rate = 1.2;
+            window.speechSynthesis.speak(u);
+        }
+
+        function updateTimer() {
+            const diff = Math.floor((new Date() - startTime) / 1000);
+            const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+            const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+            const s = String(diff % 60).padStart(2, '0');
+            document.getElementById('timer').innerText = `${h}:${m}:${s}`;
+        }
 
         function connect() {
             const id = document.getElementById('targetId').value.trim();
             if(!id) return;
             socket = io(WS_URL);
-            socket.on('connect', () => socket.emit('start', id));
-            
-            socket.on('chat', data => addLog(`<span class="user">${data.user}</span> ${data.text}`));
-            socket.on('gift', data => addLog(`<div class="gift-msg">🎁 ${data.user}が${data.gift}を×${data.count}個贈りました！</div>`));
+            socket.on('connect', () => {
+                socket.emit('start', id);
+                document.getElementById('status').innerText = "🟢 接続中";
+                startTime = new Date();
+                timerInterval = setInterval(() => { updateTimer(); drawCanvas(); }, 1000);
+            });
+
+            socket.on('chat', data => {
+                const msg = `${data.user}: ${data.text}`;
+                addLog(`<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`, msg);
+                speak(msg);
+            });
+
+            socket.on('gift', data => {
+                const msg = `🎁 ${data.user}が${data.gift}を贈りました！`;
+                addLog(`<div class="gift-msg">${msg}</div>`, msg);
+                speak(msg);
+            });
         }
 
-        function addLog(html) {
-            const div = document.createElement('div');
-            div.className = "comment";
-            div.innerHTML = html;
-            logDiv.prepend(div);
-            updateCanvas(); // 小窓の中身を更新
+        function addLog(html, text) {
+            document.getElementById('log').insertAdjacentHTML('afterbegin', html);
+            messages.unshift(text);
+            if(messages.length > 15) messages.pop();
         }
 
-        // 小窓表示（Picture-in-Picture）の仕組み
-        async function startPiP() {
-            try {
-                const stream = canvas.captureStream();
-                video.srcObject = stream;
-                await video.play();
-                await video.requestPictureInPicture();
-            } catch (err) {
-                alert("このブラウザは小窓表示に対応していません");
-            }
-        }
-
-        // キャンバスに文字を描画（小窓に映る内容）
-        function updateCanvas() {
+        // キャンバス（小窓の中身）を描画
+        function drawCanvas() {
             ctx.fillStyle = "#000";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#00f2ea";
+            ctx.font = "bold 24px Arial";
+            ctx.fillText("TikTok Live Monitor", 10, 40);
             ctx.fillStyle = "#fff";
-            ctx.font = "20px Arial";
-            const messages = Array.from(logDiv.innerText.split('\n')).slice(0, 20);
-            messages.forEach((m, i) => ctx.fillText(m, 10, 30 + (i * 30)));
+            ctx.font = "18px Arial";
+            messages.forEach((m, i) => {
+                ctx.fillText(m, 10, 80 + (i * 30));
+            });
         }
-        setInterval(updateCanvas, 500); // 半秒ごとに小窓を更新
+
+        // 小窓ボタンの動作
+        async function togglePiP() {
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else {
+                    const stream = canvas.captureStream(10); // キャンバスを映像化
+                    video.srcObject = stream;
+                    await video.play();
+                    await video.requestPictureInPicture();
+                }
+            } catch (err) {
+                console.error(err);
+                alert("小窓の起動に失敗しました。先に「音声ON」ボタンを押してから試してください。");
+            }
+        }
     </script>
 </body>
 </html>
