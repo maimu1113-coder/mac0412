@@ -1,155 +1,92 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Mobile TikFinity</title>
-
-<style>
-:root{
-  --bg:#000;
-  --card:#111;
-  --main:#ff0050;
-  --text:#fff;
-}
-*{box-sizing:border-box}
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
-}
-header{
-  padding:16px;
-  text-align:center;
-  font-weight:800;
-  font-size:22px;
-}
-.card{
-  background:var(--card);
-  margin:12px;
-  padding:14px;
-  border-radius:14px;
-}
-input,button{
-  width:100%;
-  padding:14px;
-  border-radius:10px;
-  border:none;
-  font-size:16px;
-}
-input{
-  background:#000;
-  color:#fff;
-  border:1px solid #333;
-}
-button{
-  background:var(--main);
-  color:#fff;
-  font-weight:700;
-}
-#log{
-  font-family:monospace;
-  font-size:12px;
-  max-height:40vh;
-  overflow:auto;
-}
-.log-item{
-  margin-bottom:6px;
-}
-.status{
-  font-size:12px;
-  color:#0f0;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MacTok Pro - TikTok Live Monitor</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
+        #log { height: 400px; overflow-y: auto; border: 1px solid #444; padding: 10px; background: #000; margin-top: 10px; border-radius: 8px; }
+        .comment { margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 3px; }
+        .user { color: #ff0050; font-weight: bold; }
+        .text { color: #fff; }
+        .status { padding: 10px; margin-bottom: 10px; border-radius: 5px; font-weight: bold; }
+        .connected { background: #00f2ea; color: black; }
+        .error { background: #ff0050; color: white; }
+        input { padding: 10px; width: 60%; border-radius: 5px; border: none; }
+        button { padding: 10px; background: #ff0050; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
 </head>
-
 <body>
 
-<header>📱 Mobile TikFinity</header>
+    <h2>MacTok Pro 🚀</h2>
+    
+    <div id="statusLabel" class="status" style="background: #333;">TikTok IDを入力して接続してください</div>
 
-<div class="card">
-  <input id="tid" placeholder="TikTok ID（@なし）">
-  <button onclick="connect()">接続する</button>
-  <div id="status" class="status">未接続</div>
-</div>
+    <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
+    <button onclick="connect()">接続する</button>
 
-<div class="card">
-  <strong>ログ</strong>
-  <div id="log"></div>
-</div>
+    <div id="log"></div>
 
-<script>
-/* ===== 設定 ===== */
-const WS_URL = "wss://あなたのRenderやRailwayのURL"; 
-let ws;
-let ttsOn = true;
+    <script>
+        /* ===== 設定 ===== */
+        // Renderで作成したあなたのサーバーの住所
+        const WS_URL = "wss://mactok-engine.onrender.com"; 
+        
+        let socket;
 
-/* ===== ログ ===== */
-function log(msg,color="#fff"){
-  const d=document.createElement("div");
-  d.className="log-item";
-  d.style.color=color;
-  d.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
-  document.getElementById("log").prepend(d);
-}
+        function connect() {
+            const targetId = document.getElementById('targetId').value;
+            if (!targetId) return alert('TikTok IDを入力してください');
 
-/* ===== 音声 ===== */
-function speak(text){
-  if(!ttsOn) return;
-  const u=new SpeechSynthesisUtterance(text);
-  u.lang="ja-JP";
-  speechSynthesis.speak(u);
-}
+            const statusLabel = document.getElementById('statusLabel');
+            const log = document.getElementById('log');
+            
+            statusLabel.innerText = "接続中...";
+            statusLabel.style.background = "#555";
 
-/* ===== 接続 ===== */
-function connect(){
-  const user=document.getElementById("tid").value.trim();
-  if(!user){alert("IDを入力してください");return;}
+            // サーバーに接続
+            socket = io(WS_URL);
 
-  ws=new WebSocket(WS_URL);
+            socket.on('connect', () => {
+                console.log('Server connected');
+                // TikTokの取得を開始
+                socket.emit('start', targetId);
+            });
 
-  ws.onopen=()=>{
-    document.getElementById("status").textContent="接続中…";
-    ws.send(JSON.stringify({type:"start",user}));
-  };
+            socket.on('status', (status) => {
+                if (status === 'connected') {
+                    statusLabel.innerText = "🟢 TikTokに接続成功！";
+                    statusLabel.className = "status connected";
+                } else {
+                    statusLabel.innerText = "❌ 接続エラー（配信中か確認してください）";
+                    statusLabel.className = "status error";
+                }
+            });
 
-  ws.onmessage=e=>{
-    const d=JSON.parse(e.data);
+            // チャット受信
+            socket.on('chat', (data) => {
+                const div = document.createElement('div');
+                div.className = "comment";
+                div.innerHTML = `<span class="user">${data.user}:</span> <span class="text">${data.text}</span>`;
+                log.prepend(div);
+            });
 
-    if(d.type==="status"){
-      document.getElementById("status").textContent="🟢 接続成功";
-      log("接続成功","#0f0");
-    }
+            // ギフト受信
+            socket.on('gift', (data) => {
+                const div = document.createElement('div');
+                div.style.color = "#ffea00";
+                div.style.fontWeight = "bold";
+                div.innerHTML = `🎁 ${data.user}さんが「${data.gift}」を贈りました！`;
+                log.prepend(div);
+            });
 
-    if(d.type==="chat"){
-      log(`${d.user}: ${d.text}`);
-      if(d.text==="!off") ttsOn=false;
-      else if(d.text==="!on") ttsOn=true;
-      else speak(`${d.user}、${d.text}`);
-    }
-
-    if(d.type==="gift"){
-      log(`🎁 ${d.user} → ${d.gift}`,"#ff0050");
-      speak(`${d.user}さん、${d.gift}ありがとう`);
-    }
-
-    if(d.type==="join"){
-      log(`➕ ${d.user} 入室`,"#0af");
-      speak(`${d.user}さんいらっしゃい`);
-    }
-
-    if(d.type==="follow"){
-      log(`⭐ ${d.user} フォロー`,"#ff0");
-      speak(`${d.user}フォローありがとう`);
-    }
-  };
-
-  ws.onerror=()=>{
-    log("接続エラー","#f00");
-  };
-}
-</script>
-
+            socket.on('disconnect', () => {
+                statusLabel.innerText = "⚪️ 切断されました";
+                statusLabel.style.background = "#333";
+            });
+        }
+    </script>
 </body>
 </html>
