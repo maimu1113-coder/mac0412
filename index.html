@@ -3,130 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MacTok Pro Final</title>
+    <title>Mac tok PRO</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #000; color: #fff; margin: 0; padding: 10px; }
-        .timer { color: #00f2ea; font-family: monospace; font-size: 1.2rem; text-align: right; margin-bottom: 5px; }
-        .controls { display: flex; gap: 5px; margin-bottom: 10px; }
-        input { flex: 1; padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #444; font-size: 16px; }
-        button { padding: 12px; border-radius: 8px; border: none; background: #ff0050; color: #fff; font-weight: bold; }
-        #pipVideo { width: 100%; height: 180px; background: #111; border: 1px solid #00f2ea; border-radius: 8px; margin-bottom: 10px; }
-        #log { height: 40vh; overflow-y: auto; border-top: 1px solid #333; padding-top: 10px; display: flex; flex-direction: column-reverse; }
-        .comment { padding: 5px; font-size: 0.9rem; border-bottom: 1px solid #222; }
-        .user { color: #00f2ea; font-weight: bold; }
+        body { font-family: sans-serif; background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        .login-card { width: 90%; max-width: 400px; text-align: center; }
+        .title { font-size: 3rem; font-weight: 900; margin-bottom: 5px; }
+        .title span { color: #ff0050; }
+        .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 40px; }
+        input { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #1a1a1a; color: #fff; text-align: center; margin-bottom: 20px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #ff0050; color: #fff; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+        #log { height: 150px; overflow-y: auto; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 20px; padding: 10px; font-size: 0.8rem; display: none; text-align: left; }
     </style>
 </head>
 <body>
-    <div class="timer" id="timer">00:00:00</div>
-    
-    <div class="controls">
+    <div class="login-card">
+        <div class="title">Mac tok <span>PRO</span></div>
+        <div class="subtitle">Security Bypass Engine v2.0</div>
         <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
-        <button onclick="startApp()">開始</button>
-        <button onclick="togglePiP()" style="background:#444">小窓</button>
+        <button class="btn" id="mainBtn" onclick="startEngine()">システム認証 / ログイン</button>
+        <div id="log"></div>
     </div>
 
-    <video id="pipVideo" autoplay muted playsinline></video>
-    <canvas id="pipCanvas" width="400" height="400" style="display:none;"></canvas>
-
-    <div id="log"></div>
+    <canvas id="pipCanvas" width="400" height="500" style="display:none;"></canvas>
+    <video id="pipVideo" autoplay muted playsinline style="width:1px; height:1px; opacity:0;"></video>
 
     <script>
-        // ★重要★ ここを自分のRenderのURL（https://...）に書き換えてください
-        const WS_URL = "https://mactok-engine.onrender.com"; 
-
-        let socket, startTime, timerInterval;
-        let messages = [];
+        const WS_URL = "https://mactok-engine.onrender.com"; // 👈 あなたのURL
+        let socket, messages = [];
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
         const video = document.getElementById('pipVideo');
 
-        // アプリ起動
-        async function startApp() {
-            // 音声とビデオの準備
-            const u = new SpeechSynthesisUtterance("システムオンライン");
-            window.speechSynthesis.speak(u);
-            
+        async function startEngine() {
+            const id = document.getElementById('targetId').value.trim();
+            if(!id) return;
+
+            // 音声＆キャンバス準備
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance("認証成功"));
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
             await video.play();
 
-            const id = document.getElementById('targetId').value.trim();
-            if(!id) return alert("IDを入力してください");
-
-            if(socket) socket.disconnect();
+            document.getElementById('log').style.display = "block";
             connect(id);
         }
 
         function connect(id) {
-            socket = io(WS_URL, { transports: ['websocket'] });
-
-            socket.on('connect', () => {
-                startTime = new Date();
-                socket.emit('start', id);
-                if(timerInterval) clearInterval(timerInterval);
-                timerInterval = setInterval(() => { updateTimer(); drawCanvas(); }, 1000);
-                addLog("SYSTEM", "サーバーに接続しました");
-            });
-
+            socket = io(WS_URL);
             socket.on('chat', data => {
-                addLog(data.user, data.text);
-                speak(`${data.user}、${data.text}`);
+                const div = document.createElement('div');
+                div.innerText = `${data.user}: ${data.text}`;
+                document.getElementById('log').prepend(div);
+                const u = new SpeechSynthesisUtterance(data.text);
+                u.lang = 'ja-JP';
+                window.speechSynthesis.speak(u);
             });
-
-            socket.on('gift', data => {
-                const msg = `🎁 ${data.gift}を贈りました！`;
-                addLog(data.user, msg);
-                speak(`${data.user}さん、${data.gift}ありがとう！`);
-            });
-
-            socket.on('connect_error', () => {
-                addLog("ERROR", "接続に失敗しました。Renderが起動中か確認してください。");
-            });
-        }
-
-        function addLog(user, text) {
-            const div = document.createElement('div');
-            div.className = "comment";
-            div.innerHTML = `<span class="user">${user}</span>: ${text}`;
-            document.getElementById('log').prepend(div);
-            messages.unshift(`${user}: ${text}`);
-            if(messages.length > 10) messages.pop();
-        }
-
-        function speak(text) {
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = 'ja-JP';
-            u.rate = 1.2;
-            window.speechSynthesis.speak(u);
-        }
-
-        function drawCanvas() {
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#00f2ea";
-            ctx.font = "bold 24px Arial";
-            ctx.fillText("MacTok Monitor", 10, 40);
-            ctx.fillStyle = "#fff";
-            ctx.font = "18px Arial";
-            messages.forEach((m, i) => ctx.fillText(m, 10, 80 + (i * 30)));
-        }
-
-        function updateTimer() {
-            const diff = Math.floor((new Date() - startTime) / 1000);
-            document.getElementById('timer').innerText = new Date(diff * 1000).toISOString().substr(11, 8);
-        }
-
-        async function togglePiP() {
-            try {
-                if (document.pictureInPictureElement) {
-                    await document.exitPictureInPicture();
-                } else {
-                    await video.requestPictureInPicture();
-                }
-            } catch (err) {
-                alert("先に『開始』ボタンを押して映像を動かしてください");
-            }
         }
     </script>
 </body>
