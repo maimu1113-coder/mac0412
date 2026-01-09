@@ -17,7 +17,7 @@ io.on('connection', (socket) => {
             socket.emit('status', 'error');
         });
 
-        // チャット：nickname（表示名）を送るように変更
+        // 表示名（nickname）を取得して送信
         tiktokConnection.on('chat', data => {
             socket.emit('chat', { 
                 user: data.nickname || data.uniqueId, 
@@ -25,13 +25,12 @@ io.on('connection', (socket) => {
             });
         });
 
-        // ギフト：確実にデータを送る
+        // ギフト通知の強化
         tiktokConnection.on('gift', data => {
-            if (data.giftType === 1 && data.repeatEnd === false) return; 
             socket.emit('gift', { 
                 user: data.nickname || data.uniqueId, 
                 gift: data.giftName,
-                count: data.repeatCount
+                count: data.repeatCount || 1
             });
         });
 
@@ -40,4 +39,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
+server.listen(PORT, () => { console.log(`Server is running!`); });
