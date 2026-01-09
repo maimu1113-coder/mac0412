@@ -1,25 +1,43 @@
-const { WebcastPushConnection } = require('tiktok-live-connect');
 const express = require('express');
-const http = require('http');
 const { Server } = require('socket.io');
+const http = require('http');
+const { WebcastPushConnection } = require('tiktok-live-connector');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+    cors: { origin: "*" }
+});
 
 io.on('connection', (socket) => {
+    console.log('Client connected');
+
     socket.on('start', (targetId) => {
-        let tiktok = new WebcastPushConnection(targetId);
-        tiktok.connect().then(() => {
+        let tiktokConnection = new WebcastPushConnection(targetId);
+
+        tiktokConnection.connect().then(state => {
+            console.log(`Connected to ${state.roomId}`);
             socket.emit('status', 'connected');
         }).catch(err => {
+            console.error('Failed to connect', err);
             socket.emit('status', 'error');
         });
 
-        tiktok.on('chat', data => socket.emit('chat', { user: data.nickname, text: data.comment }));
-        tiktok.on('gift', data => socket.emit('gift', { user: data.nickname, gift: data.giftName }));
+        tiktokConnection.on('chat', data => {
+            socket.emit('chat', { user: data.uniqueId, text: data.comment });
+        });
+
+        tiktokConnection.on('gift', data => {
+            socket.emit('gift', { user: data.uniqueId, gift: data.giftName });
+        });
+
+        socket.on('disconnect', () => {
+            tiktokConnection.disconnect();
+        });
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
