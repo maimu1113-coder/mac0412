@@ -1,53 +1,44 @@
 const express = require("express");
 const { WebcastPushConnection } = require("tiktok-live-connector");
+const http = require("http");
+const { Server } = require("socket.io");
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } }); // 全ての接続を許可
+
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use(express.static(".")); // index.html を配信
+io.on("connection", (socket) => {
+  console.log("Browser connected");
 
-let tiktokConnection = null;
+  socket.on("start", async (username) => {
+    try {
+      const tiktok = new WebcastPushConnection(username);
+      await tiktok.connect();
+      socket.emit("status", "connected");
 
-/**
- * 接続開始 API
- * POST /connect
- * body: { username: "tiktok_id" }
- */
-app.post("/connect", async (req, res) => {
-  const { username } = req.body;
+      // チャットをブラウザへ転送
+      tiktok.on("chat", data => {
+        socket.emit("chat", { user: data.nickname, text: data.comment });
+      });
 
-  if (!username) {
-    return res.status(400).json({ error: "username is required" });
-  }
+      // ギフトをブラウザへ転送
+      tiktok.on("gift", data => {
+        socket.emit("gift", { user: data.nickname, gift: data.giftName });
+      });
 
-  try {
-    if (tiktokConnection) {
-      tiktokConnection.disconnect();
+      // 入室をブラウザへ転送
+      tiktok.on("member", data => {
+        socket.emit("join", { user: data.nickname });
+      });
+
+    } catch (err) {
+      socket.emit("status", "error");
     }
-
-    tiktokConnection = new WebcastPushConnection(username);
-
-    await tiktokConnection.connect();
-
-    console.log("Connected to TikTok LIVE:", username);
-
-    tiktokConnection.on("chat", data => {
-      console.log("CHAT:", data.nickname, data.comment);
-    });
-
-    tiktokConnection.on("gift", data => {
-      console.log("GIFT:", data.nickname, data.giftName);
-    });
-
-    res.json({ status: "connected" });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "connection failed" });
-  }
+  });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
