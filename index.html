@@ -3,64 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MacTok Pro - TikTok Live Monitor</title>
+    <title>MacTok Pro 🚀</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
-        #log { height: 400px; overflow-y: auto; border: 1px solid #444; padding: 10px; background: #000; margin-top: 10px; border-radius: 8px; }
-        .comment { margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 3px; }
-        .user { color: #ff0050; font-weight: bold; }
-        .text { color: #fff; }
-        .status { padding: 10px; margin-bottom: 10px; border-radius: 5px; font-weight: bold; }
-        .connected { background: #00f2ea; color: black; }
-        .error { background: #ff0050; color: white; }
-        input { padding: 10px; width: 60%; border-radius: 5px; border: none; }
-        button { padding: 10px; background: #ff0050; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        body { font-family: -apple-system, sans-serif; background: #000; color: white; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        #log { height: 60vh; overflow-y: auto; border: 1px solid #333; padding: 10px; background: #111; margin-top: 15px; border-radius: 12px; }
+        .comment { margin-bottom: 8px; animation: fadeIn 0.3s; line-height: 1.4; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .user { color: #00f2ea; font-weight: bold; font-size: 0.9em; }
+        .text { color: #fff; margin-left: 5px; }
+        .status { padding: 12px; margin-bottom: 15px; border-radius: 8px; font-weight: bold; text-align: center; font-size: 0.9em; }
+        .waiting { background: #222; color: #aaa; }
+        .connected { background: #00f2ea; color: #000; }
+        .error { background: #ff0050; color: #fff; }
+        .input-group { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: white; outline: none; }
+        button { padding: 12px 20px; background: #ff0050; color: white; border: none; border-radius: 8px; font-weight: bold; }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h2 style="text-align: center;">MacTok Pro 🚀</h2>
+        
+        <div id="statusLabel" class="status waiting">TikTok IDを入力してください</div>
 
-    <h2>MacTok Pro 🚀</h2>
-    
-    <div id="statusLabel" class="status" style="background: #333;">TikTok IDを入力して接続してください</div>
+        <div class="input-group">
+            <input type="text" id="targetId" placeholder="ユーザー名 (@なし)">
+            <button onclick="connect()">開始</button>
+        </div>
 
-    <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
-    <button onclick="connect()">接続する</button>
-
-    <div id="log"></div>
+        <div id="log"></div>
+    </div>
 
     <script>
         /* ===== 設定 ===== */
-        // Renderで作成したあなたのサーバーの住所
+        // Renderの「Live」画面に表示されているあなたのURLです
         const WS_URL = "wss://mactok-engine.onrender.com"; 
         
         let socket;
 
         function connect() {
-            const targetId = document.getElementById('targetId').value;
+            const targetId = document.getElementById('targetId').value.trim();
             if (!targetId) return alert('TikTok IDを入力してください');
 
             const statusLabel = document.getElementById('statusLabel');
             const log = document.getElementById('log');
             
-            statusLabel.innerText = "接続中...";
-            statusLabel.style.background = "#555";
+            // 以前の接続があれば切断
+            if (socket) socket.disconnect();
 
-            // サーバーに接続
+            statusLabel.innerText = "サーバーに接続中...";
+            statusLabel.className = "status waiting";
+            log.innerHTML = ""; // ログをクリア
+
+            // Renderサーバーに接続
             socket = io(WS_URL);
 
             socket.on('connect', () => {
-                console.log('Server connected');
+                statusLabel.innerText = `${targetId} のライブを探しています...`;
                 // TikTokの取得を開始
                 socket.emit('start', targetId);
             });
 
             socket.on('status', (status) => {
                 if (status === 'connected') {
-                    statusLabel.innerText = "🟢 TikTokに接続成功！";
+                    statusLabel.innerText = "🟢 TikTokライブに接続中！";
                     statusLabel.className = "status connected";
                 } else {
-                    statusLabel.innerText = "❌ 接続エラー（配信中か確認してください）";
+                    statusLabel.innerText = "❌ 失敗：配信中ではないかIDが違います";
                     statusLabel.className = "status error";
                 }
             });
@@ -69,22 +80,23 @@
             socket.on('chat', (data) => {
                 const div = document.createElement('div');
                 div.className = "comment";
-                div.innerHTML = `<span class="user">${data.user}:</span> <span class="text">${data.text}</span>`;
+                div.innerHTML = `<span class="user">${data.user}:</span><span class="text">${data.text}</span>`;
                 log.prepend(div);
             });
 
             // ギフト受信
             socket.on('gift', (data) => {
                 const div = document.createElement('div');
+                div.className = "comment";
                 div.style.color = "#ffea00";
                 div.style.fontWeight = "bold";
                 div.innerHTML = `🎁 ${data.user}さんが「${data.gift}」を贈りました！`;
                 log.prepend(div);
             });
 
-            socket.on('disconnect', () => {
-                statusLabel.innerText = "⚪️ 切断されました";
-                statusLabel.style.background = "#333";
+            socket.on('connect_error', () => {
+                statusLabel.innerText = "❌ サーバー接続エラー";
+                statusLabel.className = "status error";
             });
         }
     </script>
