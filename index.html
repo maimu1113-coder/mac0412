@@ -6,103 +6,118 @@
     <title>Mac tok PRO</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        .login-card { width: 90%; max-width: 400px; text-align: center; }
-        .title { font-size: 3rem; font-weight: 900; margin-bottom: 5px; }
+        body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        
+        /* ログイン画面のデザイン */
+        #login-screen { width: 90%; max-width: 400px; text-align: center; }
+        .title { font-size: 3rem; font-weight: 900; letter-spacing: -1px; }
         .title span { color: #ff0050; }
         .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 40px; }
-        input { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #1a1a1a; color: #fff; font-size: 1rem; text-align: center; margin-bottom: 20px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #ff0050; color: #fff; font-size: 1.1rem; font-weight: bold; }
-        /* ログエリア */
-        #log-area { display: none; width: 100%; margin-top: 20px; text-align: left; }
-        #log { height: 250px; overflow-y: auto; background: #0a0a0a; border: 1px solid #222; border-radius: 10px; padding: 10px; font-size: 0.85rem; display: flex; flex-direction: column-reverse; }
-        .comment { padding: 5px; border-bottom: 1px solid #111; }
-        .user { color: #00f2ea; font-weight: bold; }
+        input { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #1a1a1a; color: #fff; text-align: center; margin-bottom: 20px; box-sizing: border-box; font-size: 16px; outline: none; }
+        .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #ff0050; color: #fff; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
+
+        /* モニター画面（接続後に表示） */
+        #monitor-screen { display: none; width: 100vw; height: 100vh; padding: 20px; box-sizing: border-box; flex-direction: column; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .status-dot { width: 10px; height: 10px; background: #ff0050; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        #log { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 12px; padding: 15px; overflow-y: auto; display: flex; flex-direction: column-reverse; font-size: 0.9rem; line-height: 1.6; }
+        .comment { margin-bottom: 8px; border-bottom: 1px solid #1a1a1a; padding-bottom: 5px; animation: fadeIn 0.3s ease; }
+        .user { color: #00f2ea; font-weight: bold; margin-right: 8px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-    <div class="login-card">
+    <div id="login-screen">
         <div class="title">Mac tok <span>PRO</span></div>
         <div class="subtitle">Security Bypass Engine v2.0</div>
-
-        <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
-        <button class="btn" id="loginBtn" onclick="login()">システム認証 / ログイン</button>
-
-        <div id="log-area">
-            <div id="log">システム待機中...</div>
-            <button onclick="video.requestPictureInPicture()" style="background:#333; color:#fff; width:100%; margin-top:10px; padding:10px; border-radius:8px; border:none;">小窓表示を起動</button>
-        </div>
+        <input type="text" id="targetId" placeholder="mac.d.onald.no1">
+        <button class="btn" onclick="activateSystem()">システム認証 / ログイン</button>
     </div>
 
-    <video id="pipVideo" autoplay muted playsinline style="width:1px; height:1px; opacity:0;"></video>
+    <div id="monitor-screen">
+        <div class="header">
+            <div><span class="status-dot" id="dot"></span><span id="statusText">CONNECTING...</span></div>
+            <button onclick="video.requestPictureInPicture()" style="background:#333; color:#fff; border:none; padding:8px 15px; border-radius:20px; font-size:0.8rem;">📺 小窓モード</button>
+        </div>
+        <div id="log"></div>
+    </div>
+
+    <video id="pipVideo" autoplay muted playsinline style="display:none;"></video>
     <canvas id="pipCanvas" width="400" height="500" style="display:none;"></canvas>
 
     <script>
-        // ★重要★ ここをあなたのRenderのURLに書き換えてください
+        // 画像から確認したあなたのURLをセット済みです
         const WS_URL = "https://mactok-engine.onrender.com"; 
 
         let socket;
-        const log = document.getElementById('log');
+        const video = document.getElementById('pipVideo');
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
-        const video = document.getElementById('pipVideo');
         let messages = [];
 
-        async function login() {
-            const id = document.getElementById('targetId').value.trim();
+        async function activateSystem() {
+            const id = document.getElementById('targetId').value.trim().replace('@','');
             if(!id) return alert("IDを入力してください");
 
-            // 1. 認証成功の声を出す
-            const u = new SpeechSynthesisUtterance("認証成功。システムを確立します。");
+            // 画面を切り替え
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('monitor-screen').style.display = 'flex';
+
+            // 音声許可の儀式
+            const u = new SpeechSynthesisUtterance("認証成功。オンライン。");
+            u.lang = 'ja-JP';
             window.speechSynthesis.speak(u);
 
-            // 2. 小窓用の映像準備
+            // 小窓ビデオの準備
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
-            await video.play();
+            try { await video.play(); } catch(e) {}
 
-            // 3. 画面表示の切り替え
-            document.getElementById('log-area').style.display = "block";
-            document.getElementById('loginBtn').innerText = "ONLINE";
-            document.getElementById('loginBtn').style.background = "#00f2ea";
-
-            // 4. サーバーへ接続開始
-            startConnection(id);
+            connectToServer(id);
         }
 
-        function startConnection(id) {
+        function connectToServer(id) {
             socket = io(WS_URL, { transports: ['websocket'] });
 
             socket.on('connect', () => {
-                log.innerHTML = "<div>🟢 サーバー接続完了。ライブを監視します。</div>";
+                document.getElementById('statusText').innerText = "ONLINE";
+                document.getElementById('dot').style.background = "#00f2ea";
                 socket.emit('start', id);
-                setInterval(drawCanvas, 1000); // 小窓描画開始
+                // 小窓描画を開始
+                setInterval(drawToCanvas, 1000);
             });
 
             socket.on('chat', data => {
-                const html = `<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`;
-                log.insertAdjacentHTML('afterbegin', html);
-                messages.unshift(`${data.user}: ${data.text}`);
-                if(messages.length > 12) messages.pop();
+                // 画面に表示
+                const html = `<div class="comment"><span class="user">${data.user}</span>${data.text}</div>`;
+                document.getElementById('log').insertAdjacentHTML('afterbegin', html);
                 
-                // 読み上げ
-                const u = new SpeechSynthesisUtterance(data.text);
-                u.lang = 'ja-JP';
-                window.speechSynthesis.speak(u);
+                // 小窓用に記録
+                messages.unshift(`${data.user}: ${data.text}`);
+                if(messages.length > 10) messages.pop();
+
+                // 読み上げ実行
+                const utterance = new SpeechSynthesisUtterance(data.text);
+                utterance.lang = 'ja-JP';
+                utterance.rate = 1.2;
+                window.speechSynthesis.speak(utterance);
             });
 
-            socket.on('connect_error', (err) => {
-                log.innerHTML = `<div style="color:red">❌ 接続失敗: ${err.message}</div>`;
+            socket.on('connect_error', () => {
+                document.getElementById('statusText').innerText = "OFFLINE (URL ERROR)";
             });
         }
 
-        function drawCanvas() {
-            ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#00f2ea"; ctx.font = "bold 22px Arial";
-            ctx.fillText("MacTok PRO Monitor", 20, 40);
-            ctx.fillStyle = "#fff"; ctx.font = "18px Arial";
-            messages.forEach((m, i) => ctx.fillText(m, 20, 90 + (i * 30)));
+        function drawToCanvas() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#ff0050";
+            ctx.font = "bold 24px Arial";
+            ctx.fillText("MacTok PRO Monitor", 20, 50);
+            ctx.fillStyle = "#fff";
+            ctx.font = "18px Arial";
+            messages.forEach((m, i) => ctx.fillText(m, 20, 100 + (i * 35)));
         }
     </script>
 </body>
