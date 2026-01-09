@@ -1,14 +1,14 @@
 {
   "name": "mactok-engine",
   "version": "1.0.0",
-  "description": "TikTok Live Connector for Mac tok PRO",
+  "description": "TikTok Live Connector server",
   "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.7.2",
-    "tiktok-live-connect": "^0.1.4"
-  },
-  "scripts": {
-    "start": "node server.js"
+    "tiktok-live-connector": "^0.1.8"
   }
 }
