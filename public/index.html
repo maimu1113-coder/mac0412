@@ -1,48 +1,62 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width">
-<title>Mac Talk PRO</title>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mac Talk PRO</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 
-<body style="background:#000;color:#fff;text-align:center;">
-  <h1>Mac Talk PRO</h1>
+<body style="background:#000;color:#fff;text-align:center;font-family:sans-serif;">
+  <h1 style="color:#00f2ea;">Mac Talk PRO</h1>
 
   <input id="targetId" placeholder="TikTok ID"
-    style="padding:10px;width:80%;font-size:16px;">
+    style="padding:15px;width:80%;font-size:16px;border-radius:10px;" />
 
   <div id="start"
-    style="margin:20px auto;width:200px;height:200px;
+    style="margin:20px auto;width:180px;height:180px;
     background:#ff0050;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
     font-size:24px;font-weight:bold;cursor:pointer;">
     START
   </div>
 
-  <div id="log"></div>
+  <div id="log" style="padding:10px;"></div>
 
 <script>
-/* ★ Render + iPhone 安定接続用 */
-const socket = io(window.location.origin);
-const log = document.getElementById("log");
+const socket = io();
 
-function speak(text){
-  speechSynthesis.cancel();
+const log = document.getElementById("log");
+const startBtn = document.getElementById("start");
+
+function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "ja-JP";
+  speechSynthesis.cancel();
   speechSynthesis.speak(u);
 }
 
-document.getElementById("start").onclick = () => {
-  speak("起動します");
-  socket.emit("start", document.getElementById("targetId").value);
+startBtn.onclick = () => {
+  const id = document.getElementById("targetId").value.trim();
+  if (!id) return alert("TikTok ID を入力してください");
+
+  speak("接続します");
+  socket.emit("start", id);
 };
 
+socket.on("status", s => {
+  log.innerHTML += `<p>📡 ${s}</p>`;
+});
+
 socket.on("chat", data => {
-  log.innerHTML += `<p>${data.user}: ${data.text}</p>`;
-  speak(`${data.user}さん、${data.text}`);
+  log.innerHTML += `<p>${data.user}：${data.text}</p>`;
+  speak(`${data.user}さん ${data.text}`);
+});
+
+socket.on("gift", data => {
+  const t = `🎁 ${data.user} ${data.giftName} ×${data.count}`;
+  log.innerHTML += `<p style="color:yellow">${t}</p>`;
+  speak(t);
 });
 </script>
 </body>
