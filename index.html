@@ -2,31 +2,29 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - PiP Force</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mac Talk PRO</title>
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; touch-action: manipulation; }
         #login-container { width: 85%; max-width: 300px; text-align: center; }
-        .title { font-size: 2rem; font-weight: 900; color: #ff0050; margin-bottom: 20px; text-shadow: 0 0 10px #ff0050; }
+        .title { font-size: 2rem; font-weight: 900; color: #ff0050; margin-bottom: 20px; }
         input { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #333; background: #111; color: #fff; margin-bottom: 15px; font-size: 16px; outline: none; box-sizing: border-box; }
-        .btn { width: 100%; padding: 15px; border-radius: 12px; border: none; background: #00f2ea; color: #000; font-weight: bold; font-size: 1rem; cursor: pointer; }
-        #log { width: 100vw; height: 100vh; padding: 20px; display: none; flex-direction: column-reverse; overflow-y: auto; background: #000; box-sizing: border-box; font-size: 14px; }
-        .comment { margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 5px; }
-        .user { color: #00f2ea; font-weight: bold; margin-right: 5px; }
+        .btn { width: 100%; padding: 15px; border-radius: 12px; border: none; background: #00f2ea; color: #000; font-weight: bold; font-size: 1rem; }
+        #log { width: 100vw; height: 100vh; padding: 20px; display: none; flex-direction: column-reverse; overflow-y: auto; background: #000; box-sizing: border-box; }
     </style>
 </head>
 <body>
-
     <div id="login-container">
         <div class="title">Mac Talk PRO</div>
-        <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
+        <input type="text" id="targetId" placeholder="TikTok ID">
         <button class="btn" id="startBtn">SYSTEM START</button>
     </div>
-
     <div id="log"></div>
 
-    <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:10px; height:10px; opacity:0;"></video>
+    <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:100px; height:100px; opacity:0;"></video>
     <canvas id="pipCanvas" width="200" height="200" style="display:none;"></canvas>
 
     <script>
@@ -34,25 +32,15 @@
         const video = document.getElementById('pipVideo');
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
-        const startBtn = document.getElementById('startBtn');
         let socket;
 
-        // 小窓の中身を描画（動きを付けてiPhoneを騙す）
-        let angle = 0;
-        function draw() {
-            ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, 200, 200);
-            ctx.fillStyle = "#00f2ea";
-            ctx.font = "20px Arial";
-            ctx.fillText("LIVE MONITOR", 30, 100 + Math.sin(angle) * 10); // 上下させる
-            angle += 0.1;
-            requestAnimationFrame(draw);
+        // 常にキャンバスを動かす
+        function render() {
+            ctx.fillStyle = "black"; ctx.fillRect(0,0,200,200);
+            ctx.fillStyle = "#00f2ea"; ctx.fillText(new Date().toLocaleTimeString(), 50, 100);
+            requestAnimationFrame(render);
         }
-        draw();
-
-        function cleanEmoji(text) {
-            return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
-        }
+        render();
 
         function speak(text) {
             window.speechSynthesis.cancel();
@@ -62,39 +50,34 @@
             window.speechSynthesis.speak(uttr);
         }
 
-        // 開始処理
-        startBtn.addEventListener('click', async () => {
+        document.getElementById('startBtn').addEventListener('click', async () => {
             const id = document.getElementById('targetId').value.trim();
-            if(!id) { alert("IDを入れてください"); return; }
+            if(!id) return;
 
-            // 1. 小窓(PiP)を最優先で起動
-            const stream = canvas.captureStream(30);
-            video.srcObject = stream;
+            // 動画再生を先に開始（iPhoneの制約回避）
+            video.srcObject = canvas.captureStream(30);
+            await video.play();
+
+            // 小窓起動
             try {
-                await video.play();
-                if (document.pictureInPictureEnabled) {
+                if (video.webkitSetPresentationMode) {
+                    video.webkitSetPresentationMode("picture-in-picture");
+                } else if (document.pictureInPictureEnabled) {
                     await video.requestPictureInPicture();
                 }
             } catch (e) {
-                console.error("PiP失敗:", e);
-                alert("小窓が起動できませんでした。ブラウザの設定を確認してください。");
+                alert("ブラウザが小窓を制限しています。Safariで開き直すか設定を確認してください。");
             }
 
-            // 2. 画面切り替え
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('log').style.display = 'flex';
 
-            // 3. 通信開始
             socket = io(WS_URL, { transports: ['websocket'] });
-            socket.on('connect', () => {
-                speak("システムオンライン");
-            });
+            socket.on('connect', () => speak("システム開始"));
             socket.on('chat', data => {
-                const u = cleanEmoji(data.user);
-                const t = cleanEmoji(data.text);
-                const html = `<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`;
+                const html = `<div>${data.user}: ${data.text}</div>`;
                 document.getElementById('log').insertAdjacentHTML('afterbegin', html);
-                if(t.length > 0) speak(`${u}。 ${t}`);
+                speak(`${data.user}。${data.text}`);
             });
             socket.emit('start', id);
         });
