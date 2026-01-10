@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - Ultimate</title>
+    <title>Mac Talk PRO - Stealth Gift</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -22,7 +22,7 @@
         #status-display { font-size: 1rem; font-weight: bold; color: #ff0050; text-align: center; margin-bottom: 10px; }
         #log { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 15px; padding: 12px; overflow-y: auto; display: flex; flex-direction: column-reverse; font-size: 0.85rem; }
         .comment { padding: 8px; border-bottom: 1px solid #1a1a1a; }
-        .gift-msg { color: #ff00ff; font-weight: bold; border-left: 4px solid #ff00ff; padding-left: 8px; }
+        .gift-msg { color: #ff00ff; font-weight: bold; border-left: 4px solid #ff00ff; padding-left: 8px; background: rgba(255, 0, 255, 0.05); }
         .user { color: #00f2ea; font-weight: bold; margin-right: 5px; }
         .hidden { display: none; }
     </style>
@@ -60,19 +60,14 @@
         const ctx = canvas.getContext('2d');
         const giftAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
 
-        // 音声を有効化するための初期化
         function unlockAudio() {
-            const uttr = new SpeechSynthesisUtterance("");
-            window.speechSynthesis.speak(uttr);
-            giftAudio.play().then(() => {
-                giftAudio.pause();
-                giftAudio.currentTime = 0;
-            }).catch(e => console.log("Audio unlock failed"));
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+            giftAudio.play().then(() => { giftAudio.pause(); giftAudio.currentTime = 0; }).catch(e => {});
         }
 
         function checkPassword() {
             if(document.getElementById('passInput').value === "0000") {
-                unlockAudio(); // 音声機能をアクティベート
+                unlockAudio();
                 document.getElementById('step-pass').classList.add('hidden');
                 document.getElementById('step-id').classList.remove('hidden');
                 initSocket();
@@ -93,28 +88,32 @@
                 if(processedMsgs.size > 50) processedMsgs.delete(processedMsgs.values().next().value);
 
                 addLog(data.user, data.text, false);
-                const cText = cleanEmoji(data.text);
-                if(cText.length > 0) {
-                    speak(`${data.user}。 ${cText}`);
+                
+                // 名前からも本文からも絵文字を消す
+                const cleanUser = cleanEmoji(data.user);
+                const cleanMsg = cleanEmoji(data.text);
+                
+                if(cleanMsg.length > 0) {
+                    speak(`${cleanUser}。 ${cleanMsg}`);
                 }
             });
 
             socket.on('gift', data => {
+                // ギフトは「音」だけ鳴らして読み上げはしない
                 giftAudio.play();
                 addLog(data.user, `${data.giftName}を贈りました！`, true);
-                speak(`${data.user}。 ${data.giftName}をありがとう。`);
             });
         }
 
         function speak(text) {
-            // 他の読み上げを消さずにキューに溜める（最後まで読む）
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
-            uttr.rate = 1.2; // 読み上げ速度アップ
+            uttr.rate = 1.2; 
             uttr.volume = 1.0;
             window.speechSynthesis.speak(uttr);
         }
 
+        // 絵文字・記号を強力に除去
         function cleanEmoji(text) {
             return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
         }
@@ -129,7 +128,7 @@
         async function startReading() {
             const id = document.getElementById('targetId').value.trim().replace('@','');
             if(!id) return;
-            unlockAudio(); // 再度念のため実行
+            unlockAudio();
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
             try { await video.play(); await video.requestPictureInPicture(); } catch (e) {}
@@ -137,14 +136,14 @@
             document.getElementById('monitor-screen').style.display = 'flex';
             document.getElementById('status-display').innerHTML = '<span style="color:#00f2ea;">● ONLINE</span>';
             socket.emit('start', id);
-            speak("システム起動。同期完了。");
+            speak("システム起動");
             setInterval(drawCanvas, 1000);
         }
 
         function drawCanvas() {
             ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "#00f2ea"; ctx.font = "bold 22px Arial";
-            ctx.fillText("Mac Talk Monitor", 20, 50);
+            ctx.fillText("Mac Talk PRO", 20, 50);
             ctx.fillStyle = "#fff"; ctx.font = "16px Arial";
             messages.forEach((m, i) => ctx.fillText(m.substring(0,25), 20, 100 + (i * 35)));
         }
