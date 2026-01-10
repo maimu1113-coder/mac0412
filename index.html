@@ -3,36 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - Final Edition</title>
+    <title>Mac Talk PRO - Final</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
-        
         @keyframes rainbow-neon {
             0% { color: #ff0000; text-shadow: 0 0 8px #ff0000; }
             33% { color: #ffff00; text-shadow: 0 0 8px #ffff00; }
             66% { color: #00ffff; text-shadow: 0 0 8px #00ffff; }
             100% { color: #ff00ff; text-shadow: 0 0 8px #ff00ff; }
         }
-
-        #login-container { width: 85%; max-width: 320px; text-align: center; background: #111; padding: 30px 20px; border-radius: 20px; border: 1px solid #222; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #login-container { width: 85%; max-width: 320px; text-align: center; background: #111; padding: 30px 20px; border-radius: 20px; border: 1px solid #222; }
         .title { font-size: 2.2rem; font-weight: 900; animation: rainbow-neon 5s infinite linear; margin-bottom: 5px; }
-        .subtitle { color: #666; font-size: 0.7rem; margin-bottom: 25px; letter-spacing: 1px; }
-        
+        .subtitle { color: #666; font-size: 0.7rem; margin-bottom: 25px; }
         input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #333; background: #000; color: #fff; text-align: center; margin-bottom: 15px; font-size: 14px; outline: none; box-sizing: border-box; }
-        input:focus { border-color: #ff0050; }
-        
-        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #ff0050; color: #fff; font-weight: bold; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
-        .btn:active { transform: scale(0.98); opacity: 0.8; }
-
+        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #ff0050; color: #fff; font-weight: bold; font-size: 0.9rem; cursor: pointer; }
         #monitor-screen { display: none; width: 100vw; height: 100vh; padding: 15px; box-sizing: border-box; flex-direction: column; }
         #status-display { font-size: 1rem; font-weight: bold; color: #ff0050; text-align: center; margin-bottom: 10px; }
         #log { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 15px; padding: 12px; overflow-y: auto; display: flex; flex-direction: column-reverse; font-size: 0.85rem; }
-        .comment { padding: 8px; border-bottom: 1px solid #1a1a1a; animation: slideIn 0.2s ease-out; }
-        .gift-msg { color: #ff00ff; font-weight: bold; border-left: 4px solid #ff00ff; padding-left: 8px; background: rgba(255, 0, 255, 0.05); }
+        .comment { padding: 8px; border-bottom: 1px solid #1a1a1a; }
+        .gift-msg { color: #ff00ff; font-weight: bold; border-left: 4px solid #ff00ff; padding-left: 8px; }
         .user { color: #00f2ea; font-weight: bold; margin-right: 5px; }
-        
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
         .hidden { display: none; }
     </style>
 </head>
@@ -41,15 +32,13 @@
     <div id="login-container">
         <div class="title">Mac Talk</div>
         <div class="subtitle">Security Bypass Engine v2.0</div>
-        
         <div id="step-pass">
             <input type="password" id="passInput" placeholder="PASSWORD (0000)">
             <button class="btn" onclick="checkPassword()">UNLOCK / CONNECT</button>
         </div>
-
         <div id="step-id" class="hidden">
-            <div id="conn-status" style="font-size: 10px; color: #ff0050; margin-bottom: 10px;">SERVER SLEEPING... 💤</div>
-            <input type="text" id="targetId" placeholder="TikTok ID (@抜き)">
+            <div id="conn-status" style="font-size: 10px; color: #ff0050; margin-bottom: 10px;">SERVER READY...</div>
+            <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
             <button class="btn" onclick="startReading()">READING START</button>
         </div>
     </div>
@@ -71,27 +60,16 @@
         const ctx = canvas.getContext('2d');
         const giftAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
 
-        // パスワード認証 & サーバー事前接続
         function checkPassword() {
-            const pass = document.getElementById('passInput').value;
-            if(pass === "0000") {
+            if(document.getElementById('passInput').value === "0000") {
                 document.getElementById('step-pass').classList.add('hidden');
                 document.getElementById('step-id').classList.remove('hidden');
                 initSocket();
-            } else {
-                alert("パスワードが違います");
-            }
+            } else { alert("パスワードが違います"); }
         }
 
-        // ソケット初期化（重複防止・読み上げ設定込）
         function initSocket() {
-            socket = io(WS_URL, { 
-                transports: ['websocket'], 
-                reconnection: true,
-                reconnectionAttempts: 10,
-                timeout: 20000 
-            });
-
+            socket = io(WS_URL, { transports: ['websocket'], reconnection: true });
             socket.on('connect', () => {
                 document.getElementById('conn-status').innerText = "SERVER CONNECTED ✅";
                 document.getElementById('conn-status').style.color = "#00f2ea";
@@ -104,20 +82,25 @@
                 if(processedMsgs.size > 50) processedMsgs.delete(processedMsgs.values().next().value);
 
                 addLog(data.user, data.text, false);
-                speak(`${data.user}。 ${cleanText(data.text)}`);
+                // 絵文字を除去したテキストを作成
+                const cText = cleanEmoji(data.text);
+                if(cText.length > 0) {
+                    speak(`${data.user}。 ${cText}`);
+                }
             });
 
             socket.on('gift', data => {
                 giftAudio.play();
-                const msg = `${data.giftName}を贈りました！`;
-                addLog(data.user, msg, true);
-                speak(`${data.user}。 ${data.giftName}をありがとう！`);
+                addLog(data.user, `${data.giftName}を贈りました！`, true);
+                speak(`${data.user}。 ${data.giftName}をありがとう。`);
             });
         }
 
-        // 読み上げメイン関数（速度1.2・重複キャンセル）
+        // 読み上げ処理：最後まで読む設定
         function speak(text) {
-            window.speechSynthesis.cancel(); // 渋滞防止
+            // 前の読み上げを消さず、順番待ち（キュー）に追加して最後まで読ませる
+            // ※あまりに溜まる場合は window.speechSynthesis.cancel() が必要ですが、
+            // 速度1.2であれば最後まで読ませる運用が可能です。
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
             uttr.rate = 1.2; 
@@ -125,41 +108,29 @@
             window.speechSynthesis.speak(uttr);
         }
 
-        function cleanText(text) {
-            return text.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
+        // 絵文字と特殊記号を除去する関数
+        function cleanEmoji(text) {
+            return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
         }
 
         function addLog(user, text, isGift) {
             const className = isGift ? "comment gift-msg" : "comment";
             const html = `<div class="${className}"><span class="user">${user}</span>: ${text}</div>`;
-            const logBox = document.getElementById('log');
-            logBox.insertAdjacentHTML('afterbegin', html);
+            document.getElementById('log').insertAdjacentHTML('afterbegin', html);
             messages.unshift(`${user}: ${text}`);
             if(messages.length > 15) messages.pop();
         }
 
-        // ID送信 & 小窓起動 & 読み上げ開始
         async function startReading() {
             const id = document.getElementById('targetId').value.trim().replace('@','');
             if(!id) return;
-
-            // 小窓起動
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
-            try { 
-                await video.play(); 
-                await video.requestPictureInPicture(); 
-            } catch (e) {
-                console.log("PiP Error: タップが必要です");
-            }
-
+            try { await video.play(); await video.requestPictureInPicture(); } catch (e) {}
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('monitor-screen').style.display = 'flex';
             document.getElementById('status-display').innerHTML = '<span style="color:#00f2ea;">● ONLINE</span>';
-
             socket.emit('start', id);
-            speak("同期を開始しました。");
-            
             setInterval(drawCanvas, 1000);
         }
 
