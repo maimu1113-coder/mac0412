@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - Stealth Gift</title>
+    <title>Mac Talk PRO - Background Fix</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -48,6 +48,8 @@
         <div id="log"></div>
     </div>
 
+    <audio id="silentAudio" loop><source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg"></audio>
+
     <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:1px; height:1px;"></video>
     <canvas id="pipCanvas" width="400" height="400" style="display:none;"></canvas>
 
@@ -59,10 +61,15 @@
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
         const giftAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+        const silentAudio = document.getElementById('silentAudio');
 
         function unlockAudio() {
-            window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-            giftAudio.play().then(() => { giftAudio.pause(); giftAudio.currentTime = 0; }).catch(e => {});
+            // 無音（極小音量）でオーディオを流し続けてバックグラウンド停止を防ぐ
+            silentAudio.volume = 0.01;
+            silentAudio.play().catch(e => console.log("Audio wake error"));
+            
+            const uttr = new SpeechSynthesisUtterance("");
+            window.speechSynthesis.speak(uttr);
         }
 
         function checkPassword() {
@@ -88,8 +95,6 @@
                 if(processedMsgs.size > 50) processedMsgs.delete(processedMsgs.values().next().value);
 
                 addLog(data.user, data.text, false);
-                
-                // 名前からも本文からも絵文字を消す
                 const cleanUser = cleanEmoji(data.user);
                 const cleanMsg = cleanEmoji(data.text);
                 
@@ -99,7 +104,6 @@
             });
 
             socket.on('gift', data => {
-                // ギフトは「音」だけ鳴らして読み上げはしない
                 giftAudio.play();
                 addLog(data.user, `${data.giftName}を贈りました！`, true);
             });
@@ -113,7 +117,6 @@
             window.speechSynthesis.speak(uttr);
         }
 
-        // 絵文字・記号を強力に除去
         function cleanEmoji(text) {
             return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
         }
@@ -128,13 +131,21 @@
         async function startReading() {
             const id = document.getElementById('targetId').value.trim().replace('@','');
             if(!id) return;
-            unlockAudio();
+            
+            // PiP（小窓）を起動。これがバックグラウンド維持に最も重要。
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
-            try { await video.play(); await video.requestPictureInPicture(); } catch (e) {}
+            try { 
+                await video.play(); 
+                await video.requestPictureInPicture(); 
+            } catch (e) {
+                alert("小窓の起動に失敗しました。画面をタップしてください。");
+            }
+
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('monitor-screen').style.display = 'flex';
             document.getElementById('status-display').innerHTML = '<span style="color:#00f2ea;">● ONLINE</span>';
+            
             socket.emit('start', id);
             speak("システム起動");
             setInterval(drawCanvas, 1000);
