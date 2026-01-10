@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac tok PRO - BG Edition</title>
+    <title>Mac tok PRO - Ultra Sync</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -24,20 +24,20 @@
 
     <div id="login-screen">
         <div class="title">Mac tok <span>PRO</span></div>
-        <div class="subtitle">Background Sync Engine v2.5</div>
+        <div class="subtitle">Security Bypass Engine v2.0</div>
         <input type="text" id="targetId" placeholder="mac.d.onald.no1">
         <button class="btn" onclick="activateSystem()">システム認証 / ログイン</button>
     </div>
 
     <div id="monitor-screen">
-        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-            <span id="status" style="color:#00f2ea;">● ONLINE</span>
-            <button onclick="startPiP()" style="background:#333; color:#fff; border:none; padding:5px 12px; border-radius:20px;">小窓起動 (推奨)</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span id="status" style="color:#00f2ea; font-weight:bold;">● ONLINE</span>
+            <button id="pipTrigger" onclick="requestPiP()" style="background:#333; color:#fff; border:none; padding:8px 15px; border-radius:20px; font-size:0.8rem;">📺 小窓モードを起動</button>
         </div>
         <div id="log"></div>
     </div>
 
-    <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:1px; height:1px;"></video>
+    <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:1px; height:1px; visibility:hidden;"></video>
     <canvas id="pipCanvas" width="400" height="400" style="display:none;"></canvas>
 
     <script>
@@ -47,55 +47,76 @@
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
 
+        // システム起動
         async function activateSystem() {
             const id = document.getElementById('targetId').value.trim();
             if(!id) return;
 
+            // 1. まず画面を切り替える
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('monitor-screen').style.display = 'flex';
 
-            // 音声とビデオの同時キック（バックグラウンド許可のため）
-            const u = new SpeechSynthesisUtterance("同期開始");
+            // 2. 音声エンジンの準備（ユーザー操作の直後に行う）
+            const u = new SpeechSynthesisUtterance("認証成功。オンライン。");
+            u.lang = 'ja-JP';
             window.speechSynthesis.speak(u);
 
-            const stream = canvas.captureStream(10);
+            // 3. ビデオストリームの準備
+            const stream = canvas.captureStream(15);
             video.srcObject = stream;
-            try { await video.play(); } catch(e) {}
+            
+            // 重要：ここで一度動画を再生して「再生中」という事実をブラウザに覚えさせる
+            try {
+                await video.play();
+            } catch(e) {
+                console.log("Video Play Error:", e);
+            }
 
+            // 4. 通信開始
             connect(id);
             setInterval(drawCanvas, 1000);
         }
 
+        async function requestPiP() {
+            try {
+                // すでに小窓なら閉じる、そうでなければ開く
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else {
+                    await video.requestPictureInPicture();
+                }
+            } catch (err) {
+                console.error(err);
+                alert("小窓の起動に失敗しました。画面を一度タップしてから再度お試しください。");
+            }
+        }
+
         function connect(id) {
-            socket = io(WS_URL, { transports: ['websocket'], reconnection: true });
+            socket = io(WS_URL, { transports: ['websocket'] });
 
             socket.on('chat', data => {
-                addLog(data.user, data.text);
+                const html = `<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`;
+                document.getElementById('log').insertAdjacentHTML('afterbegin', html);
+                
+                messages.unshift(`${data.user}: ${data.text}`);
+                if(messages.length > 10) messages.pop();
+
                 // 読み上げ
                 const uttr = new SpeechSynthesisUtterance(data.text);
                 uttr.lang = 'ja-JP';
-                uttr.rate = 1.3;
                 window.speechSynthesis.speak(uttr);
             });
         }
 
-        function addLog(user, text) {
-            const html = `<div class="comment"><span class="user">${user}</span>: ${text}</div>`;
-            document.getElementById('log').insertAdjacentHTML('afterbegin', html);
-            messages.unshift(`${user}: ${text}`);
-            if(messages.length > 10) messages.pop();
-        }
-
         function drawCanvas() {
-            ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#00f2ea"; ctx.font = "bold 20px Arial";
-            ctx.fillText("SYNC MONITORING...", 20, 40);
-            ctx.fillStyle = "#fff"; ctx.font = "16px Arial";
-            messages.forEach((m, i) => ctx.fillText(m, 20, 80 + (i * 30)));
-        }
-
-        async function startPiP() {
-            try { await video.requestPictureInPicture(); } catch(e) { alert("ブラウザが制限しています。再度お試しください。"); }
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#00f2ea";
+            ctx.font = "bold 24px Arial";
+            ctx.fillText("LIVE SYNCING...", 20, 50);
+            ctx.fillStyle = "#fff";
+            ctx.font = "18px Arial";
+            messages.forEach((m, i) => ctx.fillText(m, 20, 100 + (i * 35)));
         }
     </script>
 </body>
