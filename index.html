@@ -9,36 +9,53 @@
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
         
         @keyframes rainbow-neon {
-            0% { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
-            33% { color: #ffff00; text-shadow: 0 0 10px #ffff00; }
-            66% { color: #00ffff; text-shadow: 0 0 10px #00ffff; }
-            100% { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
+            0% { color: #ff0000; text-shadow: 0 0 8px #ff0000; }
+            33% { color: #ffff00; text-shadow: 0 0 8px #ffff00; }
+            66% { color: #00ffff; text-shadow: 0 0 8px #00ffff; }
+            100% { color: #ff00ff; text-shadow: 0 0 8px #ff00ff; }
         }
 
-        #login-screen { width: 90%; max-width: 400px; text-align: center; }
-        .title { font-size: 3.5rem; font-weight: 900; animation: rainbow-neon 5s infinite linear; margin-bottom: 5px; }
-        .subtitle { color: #666; font-size: 0.8rem; margin-bottom: 40px; }
-        input { width: 100%; padding: 18px; border-radius: 12px; border: 1px solid #333; background: #111; color: #fff; text-align: center; margin-bottom: 20px; font-size: 16px; outline: none; }
-        .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #ff0050; color: #fff; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
+        /* ログイン画面を小さく調整 */
+        #login-container { width: 85%; max-width: 320px; text-align: center; background: #111; padding: 30px 20px; border-radius: 20px; border: 1px solid #222; }
+        .title { font-size: 2.2rem; font-weight: 900; animation: rainbow-neon 5s infinite linear; margin-bottom: 5px; }
+        .subtitle { color: #666; font-size: 0.7rem; margin-bottom: 25px; letter-spacing: 1px; }
+        
+        input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #333; background: #000; color: #fff; text-align: center; margin-bottom: 15px; font-size: 14px; outline: none; box-sizing: border-box; }
+        input:focus { border-color: #ff0050; }
+        
+        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #ff0050; color: #fff; font-weight: bold; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
+        .btn:active { transform: scale(0.98); opacity: 0.8; }
 
-        #monitor-screen { display: none; width: 100vw; height: 100vh; padding: 20px; box-sizing: border-box; flex-direction: column; }
-        #status-display { font-size: 1.2rem; font-weight: bold; color: #ff0050; text-align: center; margin-bottom: 15px; }
-        #log { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 15px; padding: 15px; overflow-y: auto; display: flex; flex-direction: column-reverse; font-size: 0.95rem; }
-        .comment { padding: 8px; border-bottom: 1px solid #1a1a1a; }
+        /* モニター画面 */
+        #monitor-screen { display: none; width: 100vw; height: 100vh; padding: 15px; box-sizing: border-box; flex-direction: column; }
+        #status-display { font-size: 1rem; font-weight: bold; color: #ff0050; text-align: center; margin-bottom: 10px; }
+        #log { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 15px; padding: 12px; overflow-y: auto; display: flex; flex-direction: column-reverse; font-size: 0.85rem; }
+        .comment { padding: 6px; border-bottom: 1px solid #1a1a1a; }
         .user { color: #00f2ea; font-weight: bold; margin-right: 5px; }
+
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen">
+    <div id="login-container">
         <div class="title">Mac Talk</div>
         <div class="subtitle">Security Bypass Engine v2.0</div>
-        <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
-        <button class="btn" onclick="startEngine()">システム認証 / ログイン</button>
+        
+        <div id="step-pass">
+            <input type="password" id="passInput" placeholder="PASSWORD (0000)">
+            <button class="btn" onclick="checkPassword()">UNLOCK / CONNECT</button>
+        </div>
+
+        <div id="step-id" class="hidden">
+            <div id="conn-status" style="font-size: 10px; color: #00f2ea; margin-bottom: 10px;">SERVER READY ✅</div>
+            <input type="text" id="targetId" placeholder="TikTok ID (例: user_id)">
+            <button class="btn" onclick="startReading()">READING START</button>
+        </div>
     </div>
 
     <div id="monitor-screen">
-        <div id="status-display">サーバー接続中...</div>
+        <div id="status-display">INITIALIZING...</div>
         <div id="log"></div>
     </div>
 
@@ -52,46 +69,35 @@
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
 
-        async function startEngine() {
-            const id = document.getElementById('targetId').value.trim().replace('@','');
-            if(!id) return;
-
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('monitor-screen').style.display = 'flex';
-
-            // 1. 小窓(PiP)を即起動
-            const stream = canvas.captureStream(10);
-            video.srcObject = stream;
-            try { 
-                await video.play(); 
-                await video.requestPictureInPicture(); 
-            } catch (e) {
-                document.getElementById('status-display').innerText = "画面をタップして小窓を起動";
-                document.body.onclick = async () => {
-                    await video.requestPictureInPicture();
-                    document.body.onclick = null;
-                };
+        // パスワードチェックとサーバー接続開始
+        function checkPassword() {
+            const pass = document.getElementById('passInput').value;
+            if(pass === "0000") {
+                document.getElementById('step-pass').classList.add('hidden');
+                document.getElementById('conn-status').innerText = "サーバー接続を確立中...";
+                document.getElementById('step-id').classList.remove('hidden');
+                
+                // パスワード成功時に裏で接続を開始しておく
+                initSocket();
+            } else {
+                alert("パスワードが違います");
             }
-
-            // 2. 接続開始
-            connect(id);
         }
 
-        function connect(id) {
+        function initSocket() {
             socket = io(WS_URL, { transports: ['websocket'], reconnection: true });
-
             socket.on('connect', () => {
-                // 接続できたら即カウントダウン
-                startCountdown(id);
+                document.getElementById('conn-status').innerText = "SERVER CONNECTED ✅";
+                document.getElementById('conn-status').style.color = "#00f2ea";
             });
-
+            
             socket.on('chat', data => {
                 const html = `<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`;
                 document.getElementById('log').insertAdjacentHTML('afterbegin', html);
                 messages.unshift(`${data.user}: ${data.text}`);
                 if(messages.length > 10) messages.pop();
 
-                // 絵文字除去 & 名前呼び & ゆっくり
+                // 読み上げ設定（名前呼び・ゆっくり・絵文字除去）
                 let cleanText = data.text.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
                 if (cleanText.length > 0) {
                     const uttr = new SpeechSynthesisUtterance(`${data.user}さん。${cleanText}`);
@@ -100,31 +106,29 @@
                     window.speechSynthesis.speak(uttr);
                 }
             });
-
-            // エラー表示用
-            socket.on('connect_error', () => {
-                document.getElementById('status-display').innerText = "サーバー起動中... (最大1分待機)";
-            });
         }
 
-        function startCountdown(id) {
-            let count = 2;
-            const statusBox = document.getElementById('status-display');
-            socket.emit('start', id);
+        async function startReading() {
+            const id = document.getElementById('targetId').value.trim().replace('@','');
+            if(!id) return;
 
-            const timer = setInterval(() => {
-                if(count > 0) {
-                    statusBox.innerText = `読み上げ開始まで ... ${count}`;
-                    count--;
-                } else {
-                    clearInterval(timer);
-                    statusBox.innerHTML = '<span style="color:#00f2ea;">● ONLINE</span>';
-                    const u = new SpeechSynthesisUtterance("オンライン。読み上げを開始します。");
-                    u.rate = 0.8;
-                    window.speechSynthesis.speak(u);
-                    setInterval(drawCanvas, 1000);
-                }
-            }, 1000);
+            // 小窓(PiP)起動
+            const stream = canvas.captureStream(10);
+            video.srcObject = stream;
+            try { await video.play(); await video.requestPictureInPicture(); } catch (e) {}
+
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('monitor-screen').style.display = 'flex';
+            document.getElementById('status-display').innerHTML = '<span style="color:#00f2ea;">● ONLINE (読み上げ中)</span>';
+
+            // 即座に読み上げ開始をリクエスト
+            socket.emit('start', id);
+            
+            const u = new SpeechSynthesisUtterance("同期完了。読み上げを開始します。");
+            u.rate = 0.8;
+            window.speechSynthesis.speak(u);
+            
+            setInterval(drawCanvas, 1000);
         }
 
         function drawCanvas() {
