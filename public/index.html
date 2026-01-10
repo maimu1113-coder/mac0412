@@ -1,63 +1,110 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mac Talk PRO</title>
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+    h1 { color: #00f2ea; font-size: 28px; }
+    input { padding: 15px; width: 85%; font-size: 18px; border-radius: 12px; border: none; margin-bottom: 20px; }
+    #start { 
+      margin: 20px auto; width: 160px; height: 160px; background: #ff0050; 
+      border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+      font-size: 26px; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(255,0,80,0.5);
+    }
+    #status { color: #00f2ea; margin-bottom: 10px; }
+    #log { font-size: 14px; color: #888; height: 150px; overflow: hidden; }
+    video { width: 1px; height: 1px; opacity: 0; position: absolute; }
+  </style>
 </head>
+<body>
 
-<body style="background:#000;color:#fff;text-align:center;font-family:sans-serif;">
-  <h1 style="color:#00f2ea;">Mac Talk PRO</h1>
+  <h1>Mac Talk PRO</h1>
+  <p id="status">待機中...</p>
+  
+  <input id="targetId" type="text" placeholder="TikTok ID (@抜き)" />
 
-  <input id="targetId" placeholder="TikTok ID"
-    style="padding:15px;width:80%;font-size:16px;border-radius:10px;" />
+  <div id="start">START</div>
 
-  <div id="start"
-    style="margin:20px auto;width:180px;height:180px;
-    background:#ff0050;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    font-size:24px;font-weight:bold;cursor:pointer;">
-    START
-  </div>
+  <video id="pip" playsinline muted autoplay></video>
 
-  <div id="log" style="padding:10px;"></div>
+  <div id="log"></div>
 
-<script>
-const socket = io();
+  <script>
+    const socket = io();
+    const pipVideo = document.getElementById("pip");
+    const startBtn = document.getElementById("start");
+    const statusText = document.getElementById("status");
 
-const log = document.getElementById("log");
-const startBtn = document.getElementById("start");
+    // 絵文字を除去する正規表現
+    function removeEmoji(text) {
+      return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+    }
 
-function speak(text) {
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "ja-JP";
-  speechSynthesis.cancel();
-  speechSynthesis.speak(u);
-}
+    // 読み上げ関数（キューイング対応）
+    function speak(text) {
+      if (pipVideo.paused) pipVideo.play(); // iOS用再生維持
 
-startBtn.onclick = () => {
-  const id = document.getElementById("targetId").value.trim();
-  if (!id) return alert("TikTok ID を入力してください");
+      const uttr = new SpeechSynthesisUtterance(text);
+      uttr.lang = "ja-JP";
+      uttr.rate = 1.2; // 溜まらないよう少し速め
+      
+      // 前の音声を消さず、順番に最後まで読み切る（cancelを呼ばない）
+      window.speechSynthesis.speak(uttr);
+    }
 
-  speak("接続します");
-  socket.emit("start", id);
-};
+    // PiP（バックグラウンド再生）の有効化
+    async function enablePiP() {
+      const canvas = Object.assign(document.createElement("canvas"), { width: 10, height: 10 });
+      canvas.getContext("2d").fillRect(0, 0, 10, 10);
+      pipVideo.srcObject = canvas.captureStream(1);
+      await pipVideo.play();
 
-socket.on("status", s => {
-  log.innerHTML += `<p>📡 ${s}</p>`;
-});
+      if (pipVideo.webkitSetPresentationMode) {
+        await pipVideo.webkitSetPresentationMode("picture-in-picture");
+      } else if (document.pictureInPictureEnabled) {
+        await pipVideo.requestPictureInPicture();
+      }
+    }
 
-socket.on("chat", data => {
-  log.innerHTML += `<p>${data.user}：${data.text}</p>`;
-  speak(`${data.user}さん ${data.text}`);
-});
+    startBtn.onclick = async () => {
+      const id = document.getElementById("targetId").value.trim();
+      if (!id) return alert("TikTok IDを入力してください");
 
-socket.on("gift", data => {
-  const t = `🎁 ${data.user} ${data.giftName} ×${data.count}`;
-  log.innerHTML += `<p style="color:yellow">${t}</p>`;
-  speak(t);
-});
-</script>
+      try {
+        await enablePiP();
+        statusText.innerText = "接続中...";
+        speak("システムを起動します。");
+        socket.emit("start", id);
+      } catch (e) {
+        alert("起動に失敗しました。ブラウザの設定を確認してください。");
+      }
+    };
+
+    // サーバーからのステータス通知
+    socket.on("status", s => { statusText.innerText = s; });
+
+    // コメント受信：名前は読まず、絵文字を除去して読み切る
+    socket.on("chat", data => {
+      const cleanMsg = removeEmoji(data.text);
+      if (cleanMsg.trim()) {
+        speak(cleanMsg);
+        addLog(cleanMsg);
+      }
+    });
+
+    // ギフト受信：すべて「チリーン！」で統一
+    socket.on("gift_event", () => {
+      speak("チリーン！");
+      addLog("🎁 ギフト受診：チリーン！");
+    });
+
+    function addLog(msg) {
+      const log = document.getElementById("log");
+      log.innerHTML = `<div>${msg}</div>` + log.innerHTML;
+    }
+  </script>
 </body>
 </html>
