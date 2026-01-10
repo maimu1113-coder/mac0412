@@ -5,65 +5,49 @@ const { WebcastPushConnection } = require("tiktok-live-connector");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*" }
-});
+const io = new Server(server, { cors: { origin: "*" } });
 
-// public フォルダを使う
+// publicフォルダのファイルを公開
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
-  console.log("🟢 socket connected");
-
-  let tiktokConnection = null;
+  console.log("🟢 Browser Connected");
+  let tiktok = null;
 
   socket.on("start", async (targetId) => {
-    console.log("▶ TikTok ID:", targetId);
-
-    if (tiktokConnection) {
-      tiktokConnection.disconnect();
-    }
-
-    tiktokConnection = new WebcastPushConnection(targetId);
+    if (tiktok) tiktok.disconnect();
+    
+    // TikTok IDに接続 (@抜き)
+    tiktok = new WebcastPushConnection(targetId);
 
     try {
-      await tiktokConnection.connect();
-      socket.emit("status", "connected");
-      console.log("✅ TikTok connected");
+      await tiktok.connect();
+      socket.emit("status", "接続完了！");
+      console.log(`✅ Connected to: ${targetId}`);
     } catch (err) {
-      console.log("❌ TikTok connect error", err);
-      socket.emit("status", "error");
-      return;
+      socket.emit("status", "接続エラー");
+      console.error(err);
     }
 
-    // コメント
-    tiktokConnection.on("chat", (data) => {
-      socket.emit("chat", {
-        user: data.nickname || data.uniqueId,
-        text: data.comment
+    // チャット受信
+    tiktok.on("chat", data => {
+      socket.emit("chat", { 
+        text: data.comment // 名前は送るが必要ないのでtextのみ利用
       });
     });
 
-    // ギフト
-    tiktokConnection.on("gift", (data) => {
-      socket.emit("gift", {
-        user: data.nickname || data.uniqueId,
-        giftName: data.giftName,
-        count: data.repeatCount || 1,
-        diamond: data.diamondCount || 0
-      });
+    // ギフト受信
+    tiktok.on("gift", data => {
+      // ギフトが来たら「ギフトイベント」を送信
+      socket.emit("gift_event");
     });
   });
 
   socket.on("disconnect", () => {
-    console.log("🔴 socket disconnected");
-    if (tiktokConnection) {
-      tiktokConnection.disconnect();
-    }
+    if (tiktok) tiktok.disconnect();
+    console.log("🔴 Browser Disconnected");
   });
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-  console.log("🚀 Server running on", PORT);
-});
+server.listen(PORT, () => console.log(`🚀 Mac Talk PRO running on port ${PORT}`));
