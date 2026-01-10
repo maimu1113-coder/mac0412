@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - Pure Voice</title>
+    <title>Mac Talk PRO - Stable v3.5</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -76,8 +76,7 @@
             socket = io(WS_URL, { 
                 transports: ['websocket'], 
                 reconnection: true,
-                pingInterval: 10000, 
-                pingTimeout: 5000 
+                pingInterval: 10000 
             });
 
             socket.on('connect', () => {
@@ -92,6 +91,8 @@
                 if(processedMsgs.size > 50) processedMsgs.delete(processedMsgs.values().next().value);
 
                 addLog(data.user, data.text);
+                
+                // 名前からも本文からも絵文字を消して読み上げ
                 const cleanUser = cleanEmoji(data.user);
                 const cleanMsg = cleanEmoji(data.text);
                 if(cleanMsg.length > 0) speak(`${cleanUser}。 ${cleanMsg}`);
@@ -101,20 +102,13 @@
         }
 
         function speak(text) {
-            // フリーズ防止：キューが多すぎる場合は一旦リセット
-            if (window.speechSynthesis.speaking && window.speechSynthesis.pending) {
-                if(window.speechSynthesis.getVoices().length === 0) return; // 音声エンジン未準備
-            }
-
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
-            uttr.rate = 1.3;
+            uttr.rate = 1.3; // 速度アップ
             uttr.volume = 1.0;
             
-            // iPhoneで稀に読み上げが止まる現象を回避するためのタイマー
-            uttr.onend = () => { /* 正常終了 */ };
+            // 読み上げ停止防止のガード
             uttr.onerror = () => { window.speechSynthesis.cancel(); };
-
             window.speechSynthesis.speak(uttr);
         }
 
@@ -131,6 +125,7 @@
 
         async function startReading() {
             const id = document.getElementById('targetId').value.trim();
+            if(!id) return;
             unlockAudio();
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
@@ -138,6 +133,16 @@
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('monitor-screen').style.display = 'flex';
             socket.emit('start', id);
+            speak("システム起動");
+            setInterval(drawCanvas, 1000);
+        }
+
+        function drawCanvas() {
+            ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#00f2ea"; ctx.font = "bold 22px Arial";
+            ctx.fillText("Mac Talk PRO", 20, 50);
+            ctx.fillStyle = "#fff"; ctx.font = "16px Arial";
+            messages.forEach((m, i) => ctx.fillText(m.substring(0,25), 20, 100 + (i * 35)));
         }
     </script>
 </body>
