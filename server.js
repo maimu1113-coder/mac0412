@@ -5,54 +5,38 @@ const { WebcastPushConnection } = require("tiktok-live-connector");
 
 const app = express();
 const server = http.createServer(app);
-
-// iPhone + Render 用 CORS
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: "*" }
 });
 
-// public/index.html を配信
+// public フォルダを使う
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
-  console.log("socket connected");
+  console.log("🟢 socket connected");
 
   let tiktokConnection = null;
 
-  socket.on("start", async (tiktokId) => {
-    console.log("START TikTok ID:", tiktokId);
+  socket.on("start", async (targetId) => {
+    console.log("▶ TikTok ID:", targetId);
 
-    // 既に接続してたら切断
     if (tiktokConnection) {
       tiktokConnection.disconnect();
-      tiktokConnection = null;
     }
 
-    // TikTokに接続
-    tiktokConnection = new WebcastPushConnection(tiktokId);
+    tiktokConnection = new WebcastPushConnection(targetId);
 
     try {
-      const state = await tiktokConnection.connect();
-      console.log("TikTok connected:", state.roomId);
-
-      socket.emit("chat", {
-        user: "SYSTEM",
-        text: "TikTokライブに接続しました"
-      });
-
+      await tiktokConnection.connect();
+      socket.emit("status", "connected");
+      console.log("✅ TikTok connected");
     } catch (err) {
-      console.error("TikTok connect error", err);
-      socket.emit("chat", {
-        user: "SYSTEM",
-        text: "TikTok接続に失敗しました"
-      });
+      console.log("❌ TikTok connect error", err);
+      socket.emit("status", "error");
       return;
     }
 
-    // コメント受信
+    // コメント
     tiktokConnection.on("chat", (data) => {
       socket.emit("chat", {
         user: data.nickname || data.uniqueId,
@@ -60,17 +44,26 @@ io.on("connection", (socket) => {
       });
     });
 
-    // 切断時
-    socket.on("disconnect", () => {
-      if (tiktokConnection) {
-        tiktokConnection.disconnect();
-        tiktokConnection = null;
-      }
+    // ギフト
+    tiktokConnection.on("gift", (data) => {
+      socket.emit("gift", {
+        user: data.nickname || data.uniqueId,
+        giftName: data.giftName,
+        count: data.repeatCount || 1,
+        diamond: data.diamondCount || 0
+      });
     });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("🔴 socket disconnected");
+    if (tiktokConnection) {
+      tiktokConnection.disconnect();
+    }
   });
 });
 
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
-  console.log("Server running on", PORT);
+  console.log("🚀 Server running on", PORT);
 });
