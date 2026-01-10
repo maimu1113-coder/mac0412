@@ -3,36 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO</title>
+    <title>Mac Talk PRO - Gift Sound</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
-        
         @keyframes rainbow-neon {
             0% { color: #ff0000; text-shadow: 0 0 8px #ff0000; }
             33% { color: #ffff00; text-shadow: 0 0 8px #ffff00; }
             66% { color: #00ffff; text-shadow: 0 0 8px #00ffff; }
             100% { color: #ff00ff; text-shadow: 0 0 8px #ff00ff; }
         }
-
-        /* ログイン画面を小さく調整 */
         #login-container { width: 85%; max-width: 320px; text-align: center; background: #111; padding: 30px 20px; border-radius: 20px; border: 1px solid #222; }
         .title { font-size: 2.2rem; font-weight: 900; animation: rainbow-neon 5s infinite linear; margin-bottom: 5px; }
-        .subtitle { color: #666; font-size: 0.7rem; margin-bottom: 25px; letter-spacing: 1px; }
-        
+        .subtitle { color: #666; font-size: 0.7rem; margin-bottom: 25px; }
         input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #333; background: #000; color: #fff; text-align: center; margin-bottom: 15px; font-size: 14px; outline: none; box-sizing: border-box; }
-        input:focus { border-color: #ff0050; }
-        
-        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #ff0050; color: #fff; font-weight: bold; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
-        .btn:active { transform: scale(0.98); opacity: 0.8; }
-
-        /* モニター画面 */
+        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #ff0050; color: #fff; font-weight: bold; font-size: 0.9rem; cursor: pointer; }
         #monitor-screen { display: none; width: 100vw; height: 100vh; padding: 15px; box-sizing: border-box; flex-direction: column; }
         #status-display { font-size: 1rem; font-weight: bold; color: #ff0050; text-align: center; margin-bottom: 10px; }
         #log { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 15px; padding: 12px; overflow-y: auto; display: flex; flex-direction: column-reverse; font-size: 0.85rem; }
         .comment { padding: 6px; border-bottom: 1px solid #1a1a1a; }
+        .gift-msg { color: #ff00ff; font-weight: bold; border-left: 3px solid #ff00ff; padding-left: 8px; }
         .user { color: #00f2ea; font-weight: bold; margin-right: 5px; }
-
         .hidden { display: none; }
     </style>
 </head>
@@ -41,15 +32,13 @@
     <div id="login-container">
         <div class="title">Mac Talk</div>
         <div class="subtitle">Security Bypass Engine v2.0</div>
-        
         <div id="step-pass">
             <input type="password" id="passInput" placeholder="PASSWORD (0000)">
             <button class="btn" onclick="checkPassword()">UNLOCK / CONNECT</button>
         </div>
-
         <div id="step-id" class="hidden">
             <div id="conn-status" style="font-size: 10px; color: #00f2ea; margin-bottom: 10px;">SERVER READY ✅</div>
-            <input type="text" id="targetId" placeholder="TikTok ID (例: user_id)">
+            <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
             <button class="btn" onclick="startReading()">READING START</button>
         </div>
     </div>
@@ -65,76 +54,81 @@
     <script>
         const WS_URL = "https://mactok-engine.onrender.com"; 
         let socket, messages = [];
+        let lastReadMessage = "";
         const video = document.getElementById('pipVideo');
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
 
-        // パスワードチェックとサーバー接続開始
+        // ギフト通知用の効果音
+        const giftAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+
         function checkPassword() {
-            const pass = document.getElementById('passInput').value;
-            if(pass === "0000") {
+            if(document.getElementById('passInput').value === "0000") {
                 document.getElementById('step-pass').classList.add('hidden');
-                document.getElementById('conn-status').innerText = "サーバー接続を確立中...";
                 document.getElementById('step-id').classList.remove('hidden');
-                
-                // パスワード成功時に裏で接続を開始しておく
                 initSocket();
-            } else {
-                alert("パスワードが違います");
-            }
+            } else { alert("パスワードが違います"); }
         }
 
         function initSocket() {
             socket = io(WS_URL, { transports: ['websocket'], reconnection: true });
-            socket.on('connect', () => {
-                document.getElementById('conn-status').innerText = "SERVER CONNECTED ✅";
-                document.getElementById('conn-status').style.color = "#00f2ea";
-            });
             
+            // コメント受信時
             socket.on('chat', data => {
-                const html = `<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`;
-                document.getElementById('log').insertAdjacentHTML('afterbegin', html);
-                messages.unshift(`${data.user}: ${data.text}`);
-                if(messages.length > 10) messages.pop();
+                const currentMsg = data.user + data.text;
+                if (currentMsg === lastReadMessage) return;
+                lastReadMessage = currentMsg;
 
-                // 読み上げ設定（名前呼び・ゆっくり・絵文字除去）
-                let cleanText = data.text.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
-                if (cleanText.length > 0) {
-                    const uttr = new SpeechSynthesisUtterance(`${data.user}さん。${cleanText}`);
-                    uttr.lang = 'ja-JP';
-                    uttr.rate = 0.7; 
-                    window.speechSynthesis.speak(uttr);
-                }
+                addLog(data.user, data.text, false);
+                speak(`${data.user}さん。${cleanText(data.text)}`);
             });
+
+            // ギフト受信時
+            socket.on('gift', data => {
+                giftAudio.play(); // 音を鳴らす
+                const msg = `${data.giftName}を贈りました！`;
+                addLog(data.user, msg, true);
+                speak(`${data.user}さんが、${data.giftName}をプレゼントしてくれました！`);
+            });
+        }
+
+        function addLog(user, text, isGift) {
+            const className = isGift ? "comment gift-msg" : "comment";
+            const html = `<div class="${className}"><span class="user">${user}</span>: ${text}</div>`;
+            document.getElementById('log').insertAdjacentHTML('afterbegin', html);
+            messages.unshift(`${user}: ${text}`);
+            if(messages.length > 15) messages.pop();
+        }
+
+        function speak(text) {
+            window.speechSynthesis.cancel();
+            const uttr = new SpeechSynthesisUtterance(text);
+            uttr.lang = 'ja-JP';
+            uttr.rate = 0.7; 
+            window.speechSynthesis.speak(uttr);
+        }
+
+        function cleanText(text) {
+            return text.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
         }
 
         async function startReading() {
             const id = document.getElementById('targetId').value.trim().replace('@','');
             if(!id) return;
-
-            // 小窓(PiP)起動
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
             try { await video.play(); await video.requestPictureInPicture(); } catch (e) {}
-
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('monitor-screen').style.display = 'flex';
-            document.getElementById('status-display').innerHTML = '<span style="color:#00f2ea;">● ONLINE (読み上げ中)</span>';
-
-            // 即座に読み上げ開始をリクエスト
+            document.getElementById('status-display').innerHTML = '<span style="color:#00f2ea;">● ONLINE</span>';
             socket.emit('start', id);
-            
-            const u = new SpeechSynthesisUtterance("同期完了。読み上げを開始します。");
-            u.rate = 0.8;
-            window.speechSynthesis.speak(u);
-            
             setInterval(drawCanvas, 1000);
         }
 
         function drawCanvas() {
             ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "#00f2ea"; ctx.font = "bold 24px Arial";
-            ctx.fillText("Mac Talk Monitor", 20, 50);
+            ctx.fillText("Mac Talk PRO", 20, 50);
             ctx.fillStyle = "#fff"; ctx.font = "18px Arial";
             messages.forEach((m, i) => ctx.fillText(m.substring(0,25), 20, 100 + (i * 35)));
         }
