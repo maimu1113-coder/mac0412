@@ -2,83 +2,57 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mac Talk PRO</title>
-    <link rel="apple-touch-icon" href="icon.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <style>
-        body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; touch-action: manipulation; }
-        #login-container { width: 85%; max-width: 300px; text-align: center; }
-        .title { font-size: 2rem; font-weight: 900; color: #ff0050; margin-bottom: 20px; }
-        input { width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #333; background: #111; color: #fff; margin-bottom: 15px; font-size: 16px; outline: none; box-sizing: border-box; }
-        .btn { width: 100%; padding: 15px; border-radius: 12px; border: none; background: #00f2ea; color: #000; font-weight: bold; font-size: 1rem; }
-        #log { width: 100vw; height: 100vh; padding: 20px; display: none; flex-direction: column-reverse; overflow-y: auto; background: #000; box-sizing: border-box; }
-    </style>
 </head>
-<body>
-    <div id="login-container">
-        <div class="title">Mac Talk PRO</div>
-        <input type="text" id="targetId" placeholder="TikTok ID">
-        <button class="btn" id="startBtn">SYSTEM START</button>
-    </div>
-    <div id="log"></div>
+<body style="background:#000; color:#fff; text-align:center; padding-top:50px;">
+    <h1>Mac Talk PRO</h1>
+    <input type="text" id="targetId" placeholder="TikTok ID" style="padding:15px; width:80%; font-size:16px;">
+    <br><br>
+    <button id="startBtn" style="padding:20px 40px; font-size:20px; background:#00f2ea; border-radius:15px;">SYSTEM START</button>
 
-    <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:100px; height:100px; opacity:0;"></video>
-    <canvas id="pipCanvas" width="200" height="200" style="display:none;"></canvas>
+    <video id="v" autoplay muted playsinline loop style="position:fixed;top:-100px;width:1px;height:1px;"></video>
+    <canvas id="c" width="100" height="100" style="display:none;"></canvas>
 
     <script>
-        const WS_URL = "https://mactok-engine.onrender.com"; 
-        const video = document.getElementById('pipVideo');
-        const canvas = document.getElementById('pipCanvas');
-        const ctx = canvas.getContext('2d');
-        let socket;
-
-        // 常にキャンバスを動かす
-        function render() {
-            ctx.fillStyle = "black"; ctx.fillRect(0,0,200,200);
-            ctx.fillStyle = "#00f2ea"; ctx.fillText(new Date().toLocaleTimeString(), 50, 100);
-            requestAnimationFrame(render);
-        }
-        render();
+        const v = document.getElementById('v');
+        const c = document.getElementById('c');
+        const ctx = c.getContext('2d');
 
         function speak(text) {
-            window.speechSynthesis.cancel();
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
-            uttr.rate = 1.3;
+            uttr.rate = 1.2;
+            uttr.volume = 1.0; // 音量を最大に設定
+            window.speechSynthesis.cancel();
             window.speechSynthesis.speak(uttr);
         }
 
         document.getElementById('startBtn').addEventListener('click', async () => {
+            // ボタンを押した瞬間に一回しゃべらせる（音のロック解除）
+            speak("システム起動");
+
             const id = document.getElementById('targetId').value.trim();
             if(!id) return;
 
-            // 動画再生を先に開始（iPhoneの制約回避）
-            video.srcObject = canvas.captureStream(30);
-            await video.play();
-
             // 小窓起動
-            try {
-                if (video.webkitSetPresentationMode) {
-                    video.webkitSetPresentationMode("picture-in-picture");
-                } else if (document.pictureInPictureEnabled) {
-                    await video.requestPictureInPicture();
-                }
-            } catch (e) {
-                alert("ブラウザが小窓を制限しています。Safariで開き直すか設定を確認してください。");
+            v.srcObject = c.captureStream();
+            await v.play();
+            if (v.webkitSetPresentationMode) {
+                v.webkitSetPresentationMode("picture-in-picture");
             }
 
-            document.getElementById('login-container').style.display = 'none';
-            document.getElementById('log').style.display = 'flex';
-
-            socket = io(WS_URL, { transports: ['websocket'] });
-            socket.on('connect', () => speak("システム開始"));
-            socket.on('chat', data => {
-                const html = `<div>${data.user}: ${data.text}</div>`;
-                document.getElementById('log').insertAdjacentHTML('afterbegin', html);
-                speak(`${data.user}。${data.text}`);
+            const socket = io("https://mactok-engine.onrender.com", { transports: ['websocket'] });
+            
+            socket.on('connect', () => {
+                setTimeout(() => speak("サーバーに接続しました。コメントを待機します"), 1000);
             });
+
+            socket.on('chat', data => {
+                speak(data.user + "さん。" + data.text);
+            });
+
             socket.emit('start', id);
         });
     </script>
