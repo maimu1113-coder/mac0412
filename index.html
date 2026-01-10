@@ -6,53 +6,58 @@
     <title>Mac Talk PRO</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
-<body style="background:#000; color:#fff; text-align:center; padding-top:50px;">
+<body style="background:#000; color:#fff; text-align:center; padding-top:50px; font-family:sans-serif;">
     <h1>Mac Talk PRO</h1>
-    <input type="text" id="targetId" placeholder="TikTok ID" style="padding:15px; width:80%; font-size:16px;">
+    <input type="text" id="targetId" placeholder="TikTok ID" style="padding:15px; width:80%; font-size:16px; border-radius:10px; border:none;">
     <br><br>
-    <button id="startBtn" style="padding:20px 40px; font-size:20px; background:#00f2ea; border-radius:15px;">SYSTEM START</button>
+    
+    <button id="prepareBtn" style="padding:20px; width:85%; font-size:18px; background:#ff0050; color:#fff; border-radius:15px; border:none; margin-bottom:10px;">① 小窓を準備する</button>
+    <br>
+    <button id="startBtn" style="padding:20px; width:85%; font-size:18px; background:#00f2ea; color:#000; border-radius:15px; border:none; display:none;">② システム起動</button>
 
-    <video id="v" autoplay muted playsinline loop style="position:fixed;top:-100px;width:1px;height:1px;"></video>
+    <video id="v" playsinline muted style="width:1px;height:1px;position:fixed;top:-100px;"></video>
     <canvas id="c" width="100" height="100" style="display:none;"></canvas>
 
     <script>
         const v = document.getElementById('v');
         const c = document.getElementById('c');
-        const ctx = c.getContext('2d');
+        const prepareBtn = document.getElementById('prepareBtn');
+        const startBtn = document.getElementById('startBtn');
 
         function speak(text) {
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
-            uttr.rate = 1.2;
-            uttr.volume = 1.0; // 音量を最大に設定
             window.speechSynthesis.cancel();
             window.speechSynthesis.speak(uttr);
         }
 
-        document.getElementById('startBtn').addEventListener('click', async () => {
-            // ボタンを押した瞬間に一回しゃべらせる（音のロック解除）
-            speak("システム起動");
-
-            const id = document.getElementById('targetId').value.trim();
-            if(!id) return;
-
-            // 小窓起動
+        // ① まず動画の再生許可をiPhoneからもらう
+        prepareBtn.addEventListener('click', async () => {
             v.srcObject = c.captureStream();
             await v.play();
+            prepareBtn.style.display = 'none';
+            startBtn.style.display = 'block';
+            speak("準備完了。IDを入力して起動してください");
+        });
+
+        // ② 小窓を出して接続する
+        startBtn.addEventListener('click', async () => {
+            const id = document.getElementById('targetId').value.trim();
+            if(!id) return alert("IDを入力してください");
+
             if (v.webkitSetPresentationMode) {
-                v.webkitSetPresentationMode("picture-in-picture");
+                await v.webkitSetPresentationMode("picture-in-picture");
             }
+            
+            speak("システム起動");
 
             const socket = io("https://mactok-engine.onrender.com", { transports: ['websocket'] });
-            
             socket.on('connect', () => {
-                setTimeout(() => speak("サーバーに接続しました。コメントを待機します"), 1000);
+                setTimeout(() => speak("サーバーに接続しました。"), 1000);
             });
-
             socket.on('chat', data => {
                 speak(data.user + "さん。" + data.text);
             });
-
             socket.emit('start', id);
         });
     </script>
