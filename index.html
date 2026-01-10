@@ -3,45 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - Optimization</title>
+    <title>Mac Talk PRO</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
-        
         @keyframes rainbow-neon {
             0% { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
             33% { color: #ffff00; text-shadow: 0 0 10px #ffff00; }
             66% { color: #00ffff; text-shadow: 0 0 10px #00ffff; }
             100% { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
         }
-
         #login-screen { width: 90%; max-width: 400px; text-align: center; }
         .title { font-size: 3.5rem; font-weight: 900; animation: rainbow-neon 5s infinite linear; margin-bottom: 5px; }
         .subtitle { color: #666; font-size: 0.8rem; margin-bottom: 40px; }
         input { width: 100%; padding: 18px; border-radius: 12px; border: 1px solid #333; background: #111; color: #fff; text-align: center; margin-bottom: 20px; font-size: 16px; outline: none; }
         .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #ff0050; color: #fff; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
-
         #monitor-screen { display: none; width: 100vw; height: 100vh; padding: 20px; box-sizing: border-box; flex-direction: column; }
-        #status { font-size: 0.8rem; margin-bottom: 10px; font-weight: bold; color: #ff0050; }
+        #status { font-size: 1.2rem; font-weight: bold; color: #ff0050; text-align: center; margin-bottom: 10px; }
         #log { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 15px; padding: 15px; overflow-y: auto; display: flex; flex-direction: column-reverse; font-size: 0.95rem; }
         .comment { padding: 10px; border-bottom: 1px solid #1a1a1a; }
         .user { color: #00f2ea; font-weight: bold; margin-right: 8px; }
     </style>
 </head>
 <body>
-
     <div id="login-screen">
         <div class="title">Mac Talk</div>
         <div class="subtitle">Security Bypass Engine v2.0</div>
         <input type="text" id="targetId" placeholder="TikTok ID">
         <button class="btn" onclick="startEngine()">システム認証 / ログイン</button>
     </div>
-
     <div id="monitor-screen">
-        <div id="status">CONNECTING...</div>
+        <div id="status">INITIALIZING...</div>
         <div id="log"></div>
     </div>
-
     <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:1px; height:1px;"></video>
     <canvas id="pipCanvas" width="400" height="400" style="display:none;"></canvas>
 
@@ -59,25 +53,34 @@
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('monitor-screen').style.display = 'flex';
 
-            // 【高速化】カウントダウンを待たずに即座に通信を開始
+            // 即座に接続開始
             connect(id);
 
-            // 小窓起動
+            // 小窓（PiP）を即座に要求
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
-            try { await video.play(); await video.requestPictureInPicture(); } catch (e) {}
+            try {
+                await video.play();
+                await video.requestPictureInPicture();
+            } catch (e) {
+                // 自動起動失敗時は手動タップを促す
+                document.getElementById('status').innerText = "タップして小窓を起動してください";
+                document.body.onclick = async () => {
+                    try { await video.requestPictureInPicture(); document.body.onclick = null; } catch(err){}
+                };
+            }
 
-            // 演出用カウントダウン（裏で接続は進んでいます）
-            let count = 2; // 時間短縮のため2秒に
-            const status = document.getElementById('status');
+            // 短縮カウントダウン表示
+            let count = 2;
+            const statusBox = document.getElementById('status');
             const timer = setInterval(() => {
                 if(count > 0) {
-                    status.innerText = `LINK ESTABLISHING ... ${count}`;
+                    statusBox.innerText = `読み上げ開始まで ... ${count}`;
                     count--;
                 } else {
                     clearInterval(timer);
-                    status.innerHTML = '<span style="color:#00f2ea;">● ONLINE (HIGH-SPEED MODE)</span>';
-                    speakText("オンライン。同期を開始します。");
+                    statusBox.innerHTML = '<span style="color:#00f2ea;">● ONLINE (読み上げ中)</span>';
+                    speakText("オンライン。同期を開始します。", 0.8);
                     setInterval(drawCanvas, 1000);
                 }
             }, 1000);
@@ -86,20 +89,15 @@
         function connect(id) {
             socket = io(WS_URL, { transports: ['websocket'] });
             socket.on('chat', data => {
-                // ログ表示
                 const html = `<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`;
                 document.getElementById('log').insertAdjacentHTML('afterbegin', html);
                 messages.unshift(`${data.user}: ${data.text}`);
                 if(messages.length > 10) messages.pop();
 
-                // 読み上げ処理
-                // 1. 絵文字を除去
+                // 読み上げ処理：絵文字を消して名前＋コメントをゆっくり
                 let cleanText = data.text.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
-                
                 if (cleanText.length > 0) {
-                    // 2. 「名前さん、コメント内容」の形式でゆっくり話す
-                    const speechMsg = `${data.user}さん。${cleanText}`;
-                    speakText(speechMsg, 0.8); // 速度を0.8（ゆっくり）に設定
+                    speakText(`${data.user}さん。${cleanText}`, 0.8);
                 }
             });
         }
@@ -107,14 +105,14 @@
         function speakText(text, rate = 1.0) {
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
-            uttr.rate = rate; // 読み上げ速度
+            uttr.rate = rate;
             window.speechSynthesis.speak(uttr);
         }
 
         function drawCanvas() {
             ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "#00f2ea"; ctx.font = "bold 24px Arial";
-            ctx.fillText("Mac Talk Monitor", 20, 50);
+            ctx.fillText("Mac Talk PRO", 20, 50);
             ctx.fillStyle = "#fff"; ctx.font = "18px Arial";
             messages.forEach((m, i) => ctx.fillText(m.substring(0,25), 20, 100 + (i * 35)));
         }
