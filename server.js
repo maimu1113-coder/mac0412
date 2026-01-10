@@ -5,7 +5,7 @@ const { Server } = require("socket.io");
 const app = express();
 const server = http.createServer(app);
 
-// ★ CORS 必須
+/* ★ CORS 必須（iPhone + Render） */
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -13,7 +13,7 @@ const io = new Server(server, {
   }
 });
 
-// ★ public/index.html を配信
+/* ★ public/index.html を配信 */
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
@@ -22,6 +22,7 @@ io.on("connection", (socket) => {
   socket.on("start", (id) => {
     console.log("START:", id);
 
+    /* ★ 5秒ごとテストコメント */
     setInterval(() => {
       socket.emit("chat", {
         user: "テストユーザー",
