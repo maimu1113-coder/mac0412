@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - ULTIMATE</title>
+    <title>Mac Talk PRO - PiP Force</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -21,56 +21,63 @@
     <div id="login-container">
         <div class="title">Mac Talk PRO</div>
         <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
-        <button class="btn" onclick="startSystem()">SYSTEM START</button>
-        <p style="font-size: 10px; color: #666; margin-top: 15px;">※開始後、小窓(PiP)が表示されます。<br>閉じずにTikTokへ切り替えてください。</p>
+        <button class="btn" id="startBtn">SYSTEM START</button>
     </div>
 
     <div id="log"></div>
 
-    <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:1px; height:1px;"></video>
-    <canvas id="pipCanvas" width="100" height="100" style="display:none;"></canvas>
+    <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:10px; height:10px; opacity:0;"></video>
+    <canvas id="pipCanvas" width="200" height="200" style="display:none;"></canvas>
 
     <script>
         const WS_URL = "https://mactok-engine.onrender.com"; 
-        let socket;
         const video = document.getElementById('pipVideo');
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        let socket;
+
+        // 小窓の中身を描画（動きを付けてiPhoneを騙す）
+        let angle = 0;
+        function draw() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, 200, 200);
+            ctx.fillStyle = "#00f2ea";
+            ctx.font = "20px Arial";
+            ctx.fillText("LIVE MONITOR", 30, 100 + Math.sin(angle) * 10); // 上下させる
+            angle += 0.1;
+            requestAnimationFrame(draw);
+        }
+        draw();
 
         function cleanEmoji(text) {
             return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
         }
 
         function speak(text) {
-            // iPhoneの読み上げフリーズ対策：毎回キャンセルして新しいキューを入れる
             window.speechSynthesis.cancel();
-            
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
             uttr.rate = 1.3;
-            uttr.volume = 1.0;
-
-            // 定期的に音声エンジンをリセットするダミーを挟む
-            const dummy = new SpeechSynthesisUtterance("");
-            window.speechSynthesis.speak(dummy);
-            
             window.speechSynthesis.speak(uttr);
         }
 
-        async function startSystem() {
+        // 開始処理
+        startBtn.addEventListener('click', async () => {
             const id = document.getElementById('targetId').value.trim();
             if(!id) { alert("IDを入れてください"); return; }
 
-            // 1. 小窓(PiP)の強制起動
-            ctx.fillStyle = "black";
-            ctx.fillRect(0,0,100,100);
-            const stream = canvas.captureStream(1);
+            // 1. 小窓(PiP)を最優先で起動
+            const stream = canvas.captureStream(30);
             video.srcObject = stream;
             try {
                 await video.play();
-                await video.requestPictureInPicture();
+                if (document.pictureInPictureEnabled) {
+                    await video.requestPictureInPicture();
+                }
             } catch (e) {
-                console.log("PiP Error");
+                console.error("PiP失敗:", e);
+                alert("小窓が起動できませんでした。ブラウザの設定を確認してください。");
             }
 
             // 2. 画面切り替え
@@ -78,32 +85,19 @@
             document.getElementById('log').style.display = 'flex';
 
             // 3. 通信開始
-            socket = io(WS_URL, { transports: ['websocket'], reconnection: true });
-            
+            socket = io(WS_URL, { transports: ['websocket'] });
             socket.on('connect', () => {
-                speak("システムオンライン。同期を開始します。");
+                speak("システムオンライン");
             });
-
             socket.on('chat', data => {
                 const u = cleanEmoji(data.user);
                 const t = cleanEmoji(data.text);
-                
-                // ログ表示
                 const html = `<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`;
                 document.getElementById('log').insertAdjacentHTML('afterbegin', html);
-                
-                // 読み上げ
                 if(t.length > 0) speak(`${u}。 ${t}`);
             });
-
-            socket.on('gift', data => {
-                // ギフトは音のみ（SpeechSynthesisが詰まる原因になるためAudioタグ推奨）
-                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
-                audio.play();
-            });
-
             socket.emit('start', id);
-        }
+        });
     </script>
 </body>
 </html>
