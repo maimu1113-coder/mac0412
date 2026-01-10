@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - Gift Sound</title>
+    <title>Mac Talk PRO</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -54,12 +54,10 @@
     <script>
         const WS_URL = "https://mactok-engine.onrender.com"; 
         let socket, messages = [];
-        let lastReadMessage = "";
+        let processedMsgIds = new Set(); // 重複排除用のIDセット
         const video = document.getElementById('pipVideo');
         const canvas = document.getElementById('pipCanvas');
         const ctx = canvas.getContext('2d');
-
-        // ギフト通知用の効果音
         const giftAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
 
         function checkPassword() {
@@ -73,38 +71,42 @@
         function initSocket() {
             socket = io(WS_URL, { transports: ['websocket'], reconnection: true });
             
-            // コメント受信時
             socket.on('chat', data => {
-                const currentMsg = data.user + data.text;
-                if (currentMsg === lastReadMessage) return;
-                lastReadMessage = currentMsg;
+                // IDまたは「ユーザー+本文」で重複を厳密にチェック
+                const msgId = data.user + data.text;
+                if (processedMsgIds.has(msgId)) return;
+                
+                processedMsgIds.add(msgId);
+                // メモリ節約のため古いIDを削除
+                if(processedMsgIds.size > 50) processedMsgIds.delete(processedMsgIds.values().next().value);
 
                 addLog(data.user, data.text, false);
-                speak(`${data.user}さん。${cleanText(data.text)}`);
+                speak(`${data.user}。 ${cleanText(data.text)}`);
             });
 
-            // ギフト受信時
             socket.on('gift', data => {
-                giftAudio.play(); // 音を鳴らす
+                giftAudio.play();
                 const msg = `${data.giftName}を贈りました！`;
                 addLog(data.user, msg, true);
-                speak(`${data.user}さんが、${data.giftName}をプレゼントしてくれました！`);
+                speak(`${data.user}。 ${data.giftName}をありがとう。`);
             });
         }
 
         function addLog(user, text, isGift) {
-            const className = isGift ? "comment gift-msg" : "comment";
-            const html = `<div class="${className}"><span class="user">${user}</span>: ${text}</div>`;
+            const html = `<div class="comment ${isGift?'gift-msg':''}"><span class="user">${user}</span>: ${text}</div>`;
             document.getElementById('log').insertAdjacentHTML('afterbegin', html);
             messages.unshift(`${user}: ${text}`);
             if(messages.length > 15) messages.pop();
         }
 
         function speak(text) {
+            // 前の読み上げを即座に停止して最新を優先（重複防止）
             window.speechSynthesis.cancel();
+            
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
-            uttr.rate = 0.7; 
+            uttr.rate = 1.2; // ★読み上げ速度をアップ（標準より少し速め）
+            uttr.pitch = 1.0;
             window.speechSynthesis.speak(uttr);
         }
 
@@ -128,7 +130,7 @@
         function drawCanvas() {
             ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "#00f2ea"; ctx.font = "bold 24px Arial";
-            ctx.fillText("Mac Talk PRO", 20, 50);
+            ctx.fillText("Mac Talk Monitor", 20, 50);
             ctx.fillStyle = "#fff"; ctx.font = "18px Arial";
             messages.forEach((m, i) => ctx.fillText(m.substring(0,25), 20, 100 + (i * 35)));
         }
