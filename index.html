@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO</title>
+    <title>Mac Talk PRO - Stability</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -18,24 +18,29 @@
         .subtitle { color: #666; font-size: 0.8rem; margin-bottom: 40px; }
         input { width: 100%; padding: 18px; border-radius: 12px; border: 1px solid #333; background: #111; color: #fff; text-align: center; margin-bottom: 20px; font-size: 16px; outline: none; }
         .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; background: #ff0050; color: #fff; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
+        
         #monitor-screen { display: none; width: 100vw; height: 100vh; padding: 20px; box-sizing: border-box; flex-direction: column; }
-        #status { font-size: 1.2rem; font-weight: bold; color: #ff0050; text-align: center; margin-bottom: 10px; }
+        #status-display { font-size: 1.2rem; font-weight: bold; color: #ff0050; text-align: center; margin-bottom: 15px; min-height: 1.5em; }
         #log { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 15px; padding: 15px; overflow-y: auto; display: flex; flex-direction: column-reverse; font-size: 0.95rem; }
-        .comment { padding: 10px; border-bottom: 1px solid #1a1a1a; }
-        .user { color: #00f2ea; font-weight: bold; margin-right: 8px; }
+        .comment { padding: 8px; border-bottom: 1px solid #1a1a1a; animation: fadeIn 0.3s ease; }
+        .user { color: #00f2ea; font-weight: bold; margin-right: 5px; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
+
     <div id="login-screen">
         <div class="title">Mac Talk</div>
         <div class="subtitle">Security Bypass Engine v2.0</div>
-        <input type="text" id="targetId" placeholder="TikTok ID">
+        <input type="text" id="targetId" placeholder="TikTok ID (@なし)">
         <button class="btn" onclick="startEngine()">システム認証 / ログイン</button>
     </div>
+
     <div id="monitor-screen">
-        <div id="status">INITIALIZING...</div>
+        <div id="status-display">サーバー起動を待機中...</div>
         <div id="log"></div>
     </div>
+
     <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:1px; height:1px;"></video>
     <canvas id="pipCanvas" width="400" height="400" style="display:none;"></canvas>
 
@@ -47,72 +52,80 @@
         const ctx = canvas.getContext('2d');
 
         async function startEngine() {
-            const id = document.getElementById('targetId').value.trim();
+            const id = document.getElementById('targetId').value.trim().replace('@','');
             if(!id) return;
 
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('monitor-screen').style.display = 'flex';
 
-            // 即座に接続開始
-            connect(id);
-
-            // 小窓（PiP）を即座に要求
+            // 小窓(PiP)の起動を最優先
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
-            try {
-                await video.play();
-                await video.requestPictureInPicture();
-            } catch (e) {
-                // 自動起動失敗時は手動タップを促す
-                document.getElementById('status').innerText = "タップして小窓を起動してください";
-                document.body.onclick = async () => {
-                    try { await video.requestPictureInPicture(); document.body.onclick = null; } catch(err){}
-                };
-            }
+            try { 
+                await video.play(); 
+                await video.requestPictureInPicture(); 
+            } catch (e) { console.log("PiP Error"); }
 
-            // 短縮カウントダウン表示
-            let count = 2;
-            const statusBox = document.getElementById('status');
-            const timer = setInterval(() => {
-                if(count > 0) {
-                    statusBox.innerText = `読み上げ開始まで ... ${count}`;
-                    count--;
-                } else {
-                    clearInterval(timer);
-                    statusBox.innerHTML = '<span style="color:#00f2ea;">● ONLINE (読み上げ中)</span>';
-                    speakText("オンライン。同期を開始します。", 0.8);
-                    setInterval(drawCanvas, 1000);
-                }
-            }, 1000);
+            connect(id);
         }
 
         function connect(id) {
-            socket = io(WS_URL, { transports: ['websocket'] });
+            const statusBox = document.getElementById('status-display');
+            statusBox.innerText = "サーバーを呼び出し中... (約30秒)";
+
+            socket = io(WS_URL, { 
+                transports: ['websocket'],
+                reconnection: true,
+                reconnectionAttempts: 10,
+                timeout: 20000 
+            });
+
+            socket.on('connect', () => {
+                // 接続成功したらカウントダウン開始
+                startCountdown(id);
+            });
+
             socket.on('chat', data => {
                 const html = `<div class="comment"><span class="user">${data.user}</span>: ${data.text}</div>`;
                 document.getElementById('log').insertAdjacentHTML('afterbegin', html);
                 messages.unshift(`${data.user}: ${data.text}`);
                 if(messages.length > 10) messages.pop();
 
-                // 読み上げ処理：絵文字を消して名前＋コメントをゆっくり
+                // 絵文字を除去して「名前さん、コメント」をゆっくり
                 let cleanText = data.text.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
                 if (cleanText.length > 0) {
-                    speakText(`${data.user}さん。${cleanText}`, 0.8);
+                    const uttr = new SpeechSynthesisUtterance(`${data.user}さん。${cleanText}`);
+                    uttr.lang = 'ja-JP';
+                    uttr.rate = 0.8;
+                    window.speechSynthesis.speak(uttr);
                 }
             });
         }
 
-        function speakText(text, rate = 1.0) {
-            const uttr = new SpeechSynthesisUtterance(text);
-            uttr.lang = 'ja-JP';
-            uttr.rate = rate;
-            window.speechSynthesis.speak(uttr);
+        function startCountdown(id) {
+            let count = 3;
+            const statusBox = document.getElementById('status-display');
+            socket.emit('start', id);
+
+            const timer = setInterval(() => {
+                if(count > 0) {
+                    statusBox.innerText = `読み上げ開始まで ... ${count}`;
+                    count--;
+                } else {
+                    clearInterval(timer);
+                    statusBox.innerHTML = '<span style="color:#00f2ea;">● ONLINE</span>';
+                    const u = new SpeechSynthesisUtterance("オンライン。同期を開始しました。");
+                    u.rate = 0.8;
+                    window.speechSynthesis.speak(u);
+                    setInterval(drawCanvas, 1000);
+                }
+            }, 1000);
         }
 
         function drawCanvas() {
             ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "#00f2ea"; ctx.font = "bold 24px Arial";
-            ctx.fillText("Mac Talk PRO", 20, 50);
+            ctx.fillText("Mac Talk Monitor", 20, 50);
             ctx.fillStyle = "#fff"; ctx.font = "18px Arial";
             messages.forEach((m, i) => ctx.fillText(m.substring(0,25), 20, 100 + (i * 35)));
         }
