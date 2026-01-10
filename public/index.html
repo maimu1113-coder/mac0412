@@ -24,7 +24,8 @@
   <div id="log"></div>
 
 <script>
-const socket = io();
+/* ★ Render + iPhone 安定接続用 */
+const socket = io(window.location.origin);
 const log = document.getElementById("log");
 
 function speak(text){
