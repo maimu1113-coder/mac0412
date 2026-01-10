@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - Final</title>
+    <title>Mac Talk PRO - Ultimate</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -60,8 +60,19 @@
         const ctx = canvas.getContext('2d');
         const giftAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
 
+        // 音声を有効化するための初期化
+        function unlockAudio() {
+            const uttr = new SpeechSynthesisUtterance("");
+            window.speechSynthesis.speak(uttr);
+            giftAudio.play().then(() => {
+                giftAudio.pause();
+                giftAudio.currentTime = 0;
+            }).catch(e => console.log("Audio unlock failed"));
+        }
+
         function checkPassword() {
             if(document.getElementById('passInput').value === "0000") {
+                unlockAudio(); // 音声機能をアクティベート
                 document.getElementById('step-pass').classList.add('hidden');
                 document.getElementById('step-id').classList.remove('hidden');
                 initSocket();
@@ -82,7 +93,6 @@
                 if(processedMsgs.size > 50) processedMsgs.delete(processedMsgs.values().next().value);
 
                 addLog(data.user, data.text, false);
-                // 絵文字を除去したテキストを作成
                 const cText = cleanEmoji(data.text);
                 if(cText.length > 0) {
                     speak(`${data.user}。 ${cText}`);
@@ -96,26 +106,21 @@
             });
         }
 
-        // 読み上げ処理：最後まで読む設定
         function speak(text) {
-            // 前の読み上げを消さず、順番待ち（キュー）に追加して最後まで読ませる
-            // ※あまりに溜まる場合は window.speechSynthesis.cancel() が必要ですが、
-            // 速度1.2であれば最後まで読ませる運用が可能です。
+            // 他の読み上げを消さずにキューに溜める（最後まで読む）
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
-            uttr.rate = 1.2; 
+            uttr.rate = 1.2; // 読み上げ速度アップ
             uttr.volume = 1.0;
             window.speechSynthesis.speak(uttr);
         }
 
-        // 絵文字と特殊記号を除去する関数
         function cleanEmoji(text) {
             return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
         }
 
         function addLog(user, text, isGift) {
-            const className = isGift ? "comment gift-msg" : "comment";
-            const html = `<div class="${className}"><span class="user">${user}</span>: ${text}</div>`;
+            const html = `<div class="comment ${isGift?'gift-msg':''}"><span class="user">${user}</span>: ${text}</div>`;
             document.getElementById('log').insertAdjacentHTML('afterbegin', html);
             messages.unshift(`${user}: ${text}`);
             if(messages.length > 15) messages.pop();
@@ -124,6 +129,7 @@
         async function startReading() {
             const id = document.getElementById('targetId').value.trim().replace('@','');
             if(!id) return;
+            unlockAudio(); // 再度念のため実行
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
             try { await video.play(); await video.requestPictureInPicture(); } catch (e) {}
@@ -131,6 +137,7 @@
             document.getElementById('monitor-screen').style.display = 'flex';
             document.getElementById('status-display').innerHTML = '<span style="color:#00f2ea;">● ONLINE</span>';
             socket.emit('start', id);
+            speak("システム起動。同期完了。");
             setInterval(drawCanvas, 1000);
         }
 
