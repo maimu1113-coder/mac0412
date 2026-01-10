@@ -8,7 +8,6 @@
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
         
-        /* 虹色ネオンアニメーション */
         @keyframes rainbow-neon {
             0% { color: #ff0000; text-shadow: 0 0 10px #ff0000; }
             33% { color: #ffff00; text-shadow: 0 0 10px #ffff00; }
@@ -39,7 +38,7 @@
     </div>
 
     <div id="monitor-screen">
-        <div id="status-display">サーバー接続を待機中...</div>
+        <div id="status-display">サーバー接続中...</div>
         <div id="log"></div>
     </div>
 
@@ -60,21 +59,21 @@
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('monitor-screen').style.display = 'flex';
 
-            // 1. 小窓(PiP)の起動
+            // 1. 小窓(PiP)を即起動
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
             try { 
                 await video.play(); 
                 await video.requestPictureInPicture(); 
             } catch (e) {
-                document.getElementById('status-display').innerText = "画面をタップして小窓を許可してください";
+                document.getElementById('status-display').innerText = "画面をタップして小窓を起動";
                 document.body.onclick = async () => {
                     await video.requestPictureInPicture();
                     document.body.onclick = null;
                 };
             }
 
-            // 2. サーバー接続
+            // 2. 接続開始
             connect(id);
         }
 
@@ -82,6 +81,7 @@
             socket = io(WS_URL, { transports: ['websocket'], reconnection: true });
 
             socket.on('connect', () => {
+                // 接続できたら即カウントダウン
                 startCountdown(id);
             });
 
@@ -91,19 +91,24 @@
                 messages.unshift(`${data.user}: ${data.text}`);
                 if(messages.length > 10) messages.pop();
 
-                // 絵文字を除去して名前＋コメントをゆっくり
+                // 絵文字除去 & 名前呼び & ゆっくり
                 let cleanText = data.text.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '');
                 if (cleanText.length > 0) {
                     const uttr = new SpeechSynthesisUtterance(`${data.user}さん。${cleanText}`);
                     uttr.lang = 'ja-JP';
-                    uttr.rate = 0.7; // さらにゆっくり
+                    uttr.rate = 0.7; 
                     window.speechSynthesis.speak(uttr);
                 }
+            });
+
+            // エラー表示用
+            socket.on('connect_error', () => {
+                document.getElementById('status-display').innerText = "サーバー起動中... (最大1分待機)";
             });
         }
 
         function startCountdown(id) {
-            let count = 2; // 短縮
+            let count = 2;
             const statusBox = document.getElementById('status-display');
             socket.emit('start', id);
 
@@ -113,8 +118,8 @@
                     count--;
                 } else {
                     clearInterval(timer);
-                    statusBox.innerHTML = '<span style="color:#00f2ea;">● ONLINE (読み上げ中)</span>';
-                    const u = new SpeechSynthesisUtterance("オンライン。同期を開始します。");
+                    statusBox.innerHTML = '<span style="color:#00f2ea;">● ONLINE</span>';
+                    const u = new SpeechSynthesisUtterance("オンライン。読み上げを開始します。");
                     u.rate = 0.8;
                     window.speechSynthesis.speak(u);
                     setInterval(drawCanvas, 1000);
