@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mac Talk PRO - Final Audio Fix</title>
+    <title>Mac Talk PRO - Pure Voice</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #000; color: #fff; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -21,7 +21,6 @@
         #monitor-screen { display: none; width: 100vw; height: 100vh; padding: 15px; box-sizing: border-box; flex-direction: column; }
         #log { flex: 1; background: #0a0a0a; border: 1px solid #222; border-radius: 15px; padding: 12px; overflow-y: auto; display: flex; flex-direction: column-reverse; font-size: 0.85rem; }
         .comment { padding: 8px; border-bottom: 1px solid #1a1a1a; }
-        .gift-msg { color: #ff00ff; font-weight: bold; border-left: 4px solid #ff00ff; padding-left: 8px; }
         .user { color: #00f2ea; font-weight: bold; }
         .hidden { display: none; }
     </style>
@@ -30,7 +29,7 @@
 
     <div id="login-container">
         <div class="title">Mac Talk</div>
-        <div class="subtitle">Ultimate Audio Mode v3.0</div>
+        <div class="subtitle">Stable Engine v3.5</div>
         <div id="step-pass">
             <input type="password" id="passInput" placeholder="PASSWORD (0000)">
             <button class="btn" onclick="checkPassword()">UNLOCK / CONNECT</button>
@@ -44,7 +43,7 @@
 
     <div id="monitor-screen"><div id="log"></div></div>
 
-    <audio id="keepAlive" loop><source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg"></audio>
+    <audio id="keepAlive" loop><source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" type="audio/wav"></audio>
     <video id="pipVideo" autoplay muted playsinline loop style="position:fixed; top:-100px; width:1px; height:1px;"></video>
     <canvas id="pipCanvas" width="400" height="400" style="display:none;"></canvas>
 
@@ -54,16 +53,14 @@
         let processedMsgs = new Set();
         const video = document.getElementById('pipVideo');
         const canvas = document.getElementById('pipCanvas');
-        const ctx = canvas.getContext('2d');
         const keepAlive = document.getElementById('keepAlive');
         const giftAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
 
-        // 音声エンジンを強制アクティベート
         function unlockAudio() {
             keepAlive.volume = 0.01;
             keepAlive.play().catch(() => {});
-            const uttr = new SpeechSynthesisUtterance("");
-            window.speechSynthesis.speak(uttr);
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(""));
         }
 
         function checkPassword() {
@@ -72,11 +69,17 @@
                 document.getElementById('step-pass').classList.add('hidden');
                 document.getElementById('step-id').classList.remove('hidden');
                 initSocket();
-            } else { alert("パスワードが違います"); }
+            }
         }
 
         function initSocket() {
-            socket = io(WS_URL, { transports: ['websocket'], reconnection: true });
+            socket = io(WS_URL, { 
+                transports: ['websocket'], 
+                reconnection: true,
+                pingInterval: 10000, 
+                pingTimeout: 5000 
+            });
+
             socket.on('connect', () => {
                 document.getElementById('conn-status').innerText = "SERVER CONNECTED ✅";
                 document.getElementById('conn-status').style.color = "#00f2ea";
@@ -88,24 +91,30 @@
                 processedMsgs.add(msgKey);
                 if(processedMsgs.size > 50) processedMsgs.delete(processedMsgs.values().next().value);
 
-                addLog(data.user, data.text, false);
+                addLog(data.user, data.text);
                 const cleanUser = cleanEmoji(data.user);
                 const cleanMsg = cleanEmoji(data.text);
                 if(cleanMsg.length > 0) speak(`${cleanUser}。 ${cleanMsg}`);
             });
 
-            socket.on('gift', data => {
-                giftAudio.play();
-                addLog(data.user, `${data.giftName}を贈りました！`, true);
-            });
+            socket.on('gift', () => { giftAudio.play(); });
         }
 
         function speak(text) {
+            // フリーズ防止：キューが多すぎる場合は一旦リセット
+            if (window.speechSynthesis.speaking && window.speechSynthesis.pending) {
+                if(window.speechSynthesis.getVoices().length === 0) return; // 音声エンジン未準備
+            }
+
             const uttr = new SpeechSynthesisUtterance(text);
             uttr.lang = 'ja-JP';
-            uttr.rate = 1.3; // 配信音に紛れないよう少し速め
+            uttr.rate = 1.3;
             uttr.volume = 1.0;
-            // 他の音を消さず順番に最後まで読む
+            
+            // iPhoneで稀に読み上げが止まる現象を回避するためのタイマー
+            uttr.onend = () => { /* 正常終了 */ };
+            uttr.onerror = () => { window.speechSynthesis.cancel(); };
+
             window.speechSynthesis.speak(uttr);
         }
 
@@ -113,37 +122,22 @@
             return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
         }
 
-        function addLog(user, text, isGift) {
-            const html = `<div class="comment ${isGift?'gift-msg':''}"><span class="user">${user}</span>: ${text}</div>`;
+        function addLog(user, text) {
+            const html = `<div class="comment"><span class="user">${user}</span>: ${text}</div>`;
             document.getElementById('log').insertAdjacentHTML('afterbegin', html);
             messages.unshift(`${user}: ${text}`);
-            if(messages.length > 15) messages.pop();
+            if(messages.length > 10) messages.pop();
         }
 
         async function startReading() {
-            const id = document.getElementById('targetId').value.trim().replace('@','');
-            if(!id) return;
+            const id = document.getElementById('targetId').value.trim();
             unlockAudio();
             const stream = canvas.captureStream(10);
             video.srcObject = stream;
-            try { 
-                await video.play(); 
-                await video.requestPictureInPicture(); 
-            } catch (e) { console.log("PiP Error"); }
-
+            try { await video.play(); await video.requestPictureInPicture(); } catch (e) {}
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('monitor-screen').style.display = 'flex';
             socket.emit('start', id);
-            speak("システム起動。");
-            setInterval(drawCanvas, 1000);
-        }
-
-        function drawCanvas() {
-            ctx.fillStyle = "#000"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#00f2ea"; ctx.font = "bold 22px Arial";
-            ctx.fillText("Mac Talk Monitor", 20, 50);
-            ctx.fillStyle = "#fff"; ctx.font = "16px Arial";
-            messages.forEach((m, i) => ctx.fillText(m.substring(0,25), 20, 100 + (i * 35)));
         }
     </script>
 </body>
