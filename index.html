@@ -1,67 +1,96 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mac Talk PRO Final</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mac Talk PRO Final</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
+
 <body style="background:#000; color:#fff; text-align:center; padding-top:50px; font-family:sans-serif;">
-    <h1 style="color:#00f2ea;">Mac Talk PRO</h1>
-    <input type="text" id="targetId" placeholder="TikTok ID" value="macrecords1" style="padding:15px; width:80%; font-size:16px; border-radius:10px; margin-bottom:20px;">
-    <br>
-    
-    <div id="clickArea" style="margin:20px auto; width:180px; height:180px; background:#ff0050; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow: 0 0 20px #ff0050;">
-        <span style="font-size:24px; font-weight:bold; color:#fff;">START</span>
-    </div>
+  <h1 style="color:#00f2ea;">Mac Talk PRO</h1>
 
-    <video id="v" playsinline muted autoplay style="width:180px; height:120px; margin:10px auto; background:#222; border:2px solid #00f2ea; border-radius:10px;"></video>
-    <canvas id="c" width="100" height="100" style="display:none;"></canvas>
+  <input
+    type="text"
+    id="targetId"
+    placeholder="TikTok ID"
+    value="macrecords1"
+    style="padding:15px; width:80%; font-size:16px; border-radius:10px; margin-bottom:20px;"
+  >
 
-    <script>
-        const v = document.getElementById('v');
-        const c = document.getElementById('c');
-        const clickArea = document.getElementById('clickArea');
-        let socket;
+  <div
+    id="clickArea"
+    style="margin:20px auto; width:180px; height:180px; background:#ff0050;
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow:0 0 20px #ff0050;"
+  >
+    <span style="font-size:24px; font-weight:bold;">START</span>
+  </div>
 
-        // 音声再生を「強制的に」起こす関数
-        function speak(text) {
-            window.speechSynthesis.cancel();
-            const uttr = new SpeechSynthesisUtterance(text);
-            uttr.lang = 'ja-JP';
-            uttr.rate = 1.0;
-            uttr.pitch = 1.0;
-            window.speechSynthesis.speak(uttr);
-        }
+  <video id="v" playsinline muted autoplay
+    style="width:180px; height:120px; margin:10px auto; background:#222;
+    border:2px solid #00f2ea; border-radius:10px;">
+  </video>
 
-        clickArea.addEventListener('click', async () => {
-            const id = document.getElementById('targetId').value.trim();
-            
-            // 1. まず無音の音声を流して、iPhoneのスピーカーを「ON」にする
-            speak("システムを起動します。接続をお待ちください。");
+  <canvas id="c" width="100" height="100" style="display:none;"></canvas>
 
-            // 2. 小窓（ビデオ）の起動
-            v.srcObject = c.captureStream();
-            await v.play();
-            if (v.webkitSetPresentationMode) {
-                v.webkitSetPresentationMode("picture-in-picture");
-            }
+<script>
+const v = document.getElementById('v');
+const c = document.getElementById('c');
+const clickArea = document.getElementById('clickArea');
+let socket;
 
-            // 3. サーバーへ接続
-            if(socket) socket.close();
-            socket = io("https://mactok-engine.onrender.com", { transports: ['websocket'] });
+// 🔊 読み上げ関数
+function speak(text) {
+  window.speechSynthesis.cancel();
+  const uttr = new SpeechSynthesisUtterance(text);
+  uttr.lang = 'ja-JP';
+  uttr.rate = 1.0;
+  uttr.pitch = 1.0;
+  window.speechSynthesis.speak(uttr);
+}
 
-            socket.on('connect', () => {
-                setTimeout(() => speak("サーバーに接続しました。コメントを読み上げます。"), 1000);
-            });
+clickArea.addEventListener('click', async () => {
+  const id = document.getElementById('targetId').value.trim();
+  if (!id) return;
 
-            socket.on('chat', data => {
-                // コメントを読み上げ
-                speak(data.user + "さん、" + data.text);
-            });
+  // iOS音声ロック解除
+  speak("システムを起動します。");
 
-            socket.emit('start', id);
-        });
-    </script>
+  // ダミー映像（PiP用）
+  v.srcObject = c.captureStream();
+  await v.play();
+  if (v.webkitSetPresentationMode) {
+    v.webkitSetPresentationMode("picture-in-picture");
+  }
+
+  // Socket再接続
+  if (socket) socket.disconnect();
+
+  socket = io("https://mactok-engine.onrender.com", {
+    transports: ["websocket"]
+  });
+
+  socket.on('connect', () => {
+    speak("サーバーに接続しました。");
+    socket.emit('start', id);
+  });
+
+  // 🔔 ステータス（成功・エラー）
+  socket.on('status', msg => {
+    speak(msg);
+  });
+
+  // 💬 コメント読み上げ
+  socket.on('chat', data => {
+    speak(`${data.user}さん、${data.text}`);
+  });
+
+  // 🎁 ギフト（簡易）
+  socket.on('gift', data => {
+    speak(`${data.user}さんから${data.gift}を${data.count}個！`);
+  });
+});
+</script>
 </body>
 </html>
