@@ -8,10 +8,10 @@ const path = require("path");
 const app = express();
 const server = http.createServer(app);
 
-// ポーリングを優先する設定に変更
+// Render無料プラン対策: ポーリングを優先設定
 const io = new Server(server, {
   cors: { origin: "*" },
-  transports: ["polling", "websocket"] 
+  transports: ["polling", "websocket"]
 });
 
 const PORT = process.env.PORT || 10000;
@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 10000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// プロフィール取得API
+// --- TikTokプロフィール取得API ---
 app.get("/api/tiktok/:id", async (req, res) => {
   try {
     const response = await axios.get(`https://www.tikwm.com/api/user/info?unique_id=${req.params.id}`);
@@ -33,7 +33,7 @@ app.get("/api/tiktok/:id", async (req, res) => {
   }
 });
 
-// TikTokライブ接続管理
+// --- TikTokライブ接続管理 ---
 io.on("connection", (socket) => {
   let tiktokLive;
 
@@ -45,15 +45,16 @@ io.on("connection", (socket) => {
     tiktokLive.connect().then(state => {
       socket.emit("live-status", "🟢 ライブ接続完了！");
     }).catch(err => {
-      socket.emit("live-status", "❌ ライブがオフラインかIDミスです");
+      socket.emit("live-status", "❌ ライブがオフラインです");
     });
 
+    // コメントを受信したらクライアントへ送る
     tiktokLive.on("chat", (data) => {
       socket.emit("new-comment", { user: data.uniqueId, text: data.comment });
     });
 
     tiktokLive.on("disconnected", () => {
-      socket.emit("live-status", "⚪️ ライブ接続が終了しました");
+      socket.emit("live-status", "⚪️ 接続が終了しました");
     });
   });
 
