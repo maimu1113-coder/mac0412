@@ -1,143 +1,66 @@
-import express from "express";
-import http from "http";
-import { Server } from "socket.io";
-import fetch from "node-fetch";
-import { WebcastPushConnection } from "tiktok-live-connector";
+const express = require("express");
+const path = require("path");
+const { WebcastPushConnection } = require("tiktok-live-connector");
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const PORT = process.env.PORT || 3000;
 
-app.use(express.static("public"));
+// JSON受信を有効化
+app.use(express.json());
 
-/* ===== メモリー ===== */
-const userMemory = {};
-let lastCommentTime = Date.now();
-let idleTimer = null;
-
-/* ===== 感情分析 ===== */
-function analyzeEmotion(text) {
-  if (/w|笑|😂|🤣/.test(text)) return "happy";
-  if (/悲|つら|泣/.test(text)) return "sad";
-  if (/怒|ムカ/.test(text)) return "angry";
-  return "normal";
-}
-
-/* ===== 絵文字除去 ===== */
-function removeEmoji(text) {
-  return text.replace(/([\u{1F300}-\u{1FAFF}])/gu, "");
-}
-
-/* ===== ChatGPT ===== */
-async function askGPT(name, text, emotion) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `あなたは女性配信AI。感情は${emotion}。滑らかに話してください。`
-        },
-        {
-          role: "user",
-          content: `${name}：${text}`
-        }
-      ]
-    })
-  });
-  const j = await res.json();
-  return j.choices[0].message.content;
-}
-
-/* ===== VoiceVox ===== */
-async function voicevoxSpeak(text) {
-  const base = process.env.VOICEVOX_URL;
-
-  const q = await fetch(
-    `${base}/audio_query?text=${encodeURIComponent(text)}&speaker=1`,
-    { method: "POST" }
-  ).then(r => r.json());
-
-  const v = await fetch(
-    `${base}/synthesis?speaker=1`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(q)
-    }
-  );
-
-  const buf = await v.arrayBuffer();
-  return Buffer.from(buf).toString("base64");
-}
-
-/* ===== 無言時AIトーク ===== */
-function startIdleTalk(socket) {
-  if (idleTimer) clearInterval(idleTimer);
-
-  idleTimer = setInterval(async () => {
-    if (Date.now() - lastCommentTime > 30000) {
-      lastCommentTime = Date.now();
-
-      const topic = await askGPT(
-        "配信者AI",
-        "コメントが少ないので話題を振ってください",
-        "normal"
-      );
-
-      const voice = await voicevoxSpeak(topic);
-      socket.emit("voice", voice);
-      socket.emit("subtitle", topic);
-    }
-  }, 10000);
-}
-
-/* ===== Socket ===== */
-io.on("connection", socket => {
-
-  socket.on("ping", () => {});
-
-  socket.on("start", async targetId => {
-    const tiktok = new WebcastPushConnection(targetId);
-
-    try {
-      await tiktok.connect();
-      socket.emit("status", "connected");
-    } catch {
-      socket.emit("status", "error");
-      return;
-    }
-
-    startIdleTalk(socket);
-
-    tiktok.on("chat", async data => {
-      lastCommentTime = Date.now();
-
-      const userId = data.uniqueId;
-      const name = data.nickname || userId;
-      const text = removeEmoji(data.comment);
-
-      userMemory[userId] = name;
-      const emotion = analyzeEmotion(text);
-
-      const reply = await askGPT(name, text, emotion);
-      const voice = await voicevoxSpeak(reply);
-
-      socket.emit("voice", voice);
-      socket.emit("subtitle", reply);
-    });
-
-    socket.on("disconnect", () => {
-      tiktok.disconnect();
-    });
-  });
+// index.html をそのまま配信する
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
-server.listen(process.env.PORT || 3000, () => {
-  console.log("Server running");
+// TikTok接続用
+let tiktokConnection = null;
+
+/**
+ * TikTok LIVE 接続API
+ * POST /connect
+ * body: { username: "tiktok_id" }
+ */
+app.post("/connect", async (req, res) => {
+  const { username } = req.body;
+
+  if (!username) {
+    return res.status(400).json({ error: "username is required" });
+  }
+
+  try {
+    // 既存接続があれば切断
+    if (tiktokConnection) {
+      tiktokConnection.disconnect();
+      tiktokConnection = null;
+    }
+
+    // TikTok LIVE 接続
+    tiktokConnection = new WebcastPushConnection(username);
+
+    await tiktokConnection.connect();
+
+    console.log("✅ TikTok LIVE connected:", username);
+
+    // コメント受信
+    tiktokConnection.on("chat", data => {
+      console.log("💬 CHAT:", data.nickname, data.comment);
+    });
+
+    // ギフト受信
+    tiktokConnection.on("gift", data => {
+      console.log("🎁 GIFT:", data.nickname, data.giftName);
+    });
+
+    res.json({ status: "connected" });
+
+  } catch (err) {
+    console.error("❌ Connection error:", err);
+    res.status(500).json({ error: "connection failed" });
+  }
+});
+
+// サーバー起動
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
