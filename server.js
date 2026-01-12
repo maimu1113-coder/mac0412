@@ -1,66 +1,54 @@
-const express = require("express");
-const path = require("path");
-const { WebcastPushConnection } = require("tiktok-live-connector");
+// ==============================
+// mactok-engine server.js
+// ==============================
 
+const express = require("express");
 const app = express();
+
+// Renderが自動で割り当てるPORTを使う
 const PORT = process.env.PORT || 3000;
 
-// JSON受信を有効化
+// JSONを扱えるようにする
 app.use(express.json());
 
-// index.html をそのまま配信する
+// ------------------------------
+// ルート確認（ブラウザ用）
+// ------------------------------
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.send("mactok-engine is running 🚀");
 });
 
-// TikTok接続用
-let tiktokConnection = null;
-
-/**
- * TikTok LIVE 接続API
- * POST /connect
- * body: { username: "tiktok_id" }
- */
-app.post("/connect", async (req, res) => {
-  const { username } = req.body;
-
-  if (!username) {
-    return res.status(400).json({ error: "username is required" });
-  }
-
-  try {
-    // 既存接続があれば切断
-    if (tiktokConnection) {
-      tiktokConnection.disconnect();
-      tiktokConnection = null;
-    }
-
-    // TikTok LIVE 接続
-    tiktokConnection = new WebcastPushConnection(username);
-
-    await tiktokConnection.connect();
-
-    console.log("✅ TikTok LIVE connected:", username);
-
-    // コメント受信
-    tiktokConnection.on("chat", data => {
-      console.log("💬 CHAT:", data.nickname, data.comment);
-    });
-
-    // ギフト受信
-    tiktokConnection.on("gift", data => {
-      console.log("🎁 GIFT:", data.nickname, data.giftName);
-    });
-
-    res.json({ status: "connected" });
-
-  } catch (err) {
-    console.error("❌ Connection error:", err);
-    res.status(500).json({ error: "connection failed" });
-  }
+// ------------------------------
+// 接続テスト用（最重要）
+// ------------------------------
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "mactok-engine",
+    time: new Date().toISOString()
+  });
 });
 
+// ------------------------------
+// TikTok連携用ダミーAPI（今はテスト）
+// ------------------------------
+app.get("/tiktok/test", (req, res) => {
+  res.json({
+    message: "TikTok connection test success",
+    live: false
+  });
+});
+
+// ------------------------------
+// 404対策（Not Found防止）
+// ------------------------------
+app.use((req, res) => {
+  res.status(404).send("Not Found");
+});
+
+// ------------------------------
 // サーバー起動
+// ------------------------------
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
