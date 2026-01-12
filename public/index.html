@@ -16,55 +16,57 @@ body {
   justify-content: center;
   height: 100vh;
 }
-
 .card {
   background: #111;
-  border-radius: 16px;
-  padding: 25px;
+  border-radius: 20px;
+  padding: 30px;
   width: 90%;
   max-width: 360px;
   text-align: center;
-  box-shadow: 0 0 20px rgba(255,0,80,0.3);
+  box-shadow: 0 0 30px rgba(255,0,80,0.4);
 }
-
 .title {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: bold;
+  margin-bottom: 5px;
 }
-
 .subtitle {
-  font-size: 13px;
+  font-size: 14px;
   color: #888;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
 }
-
 input {
   width: 100%;
-  padding: 14px;
-  margin-bottom: 15px;
-  border-radius: 10px;
-  border: none;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  border: 1px solid #333;
   background: #1a1a1a;
   color: #fff;
   font-size: 16px;
   text-align: center;
+  box-sizing: border-box;
 }
-
 button {
   width: 100%;
-  padding: 14px;
+  padding: 15px;
   border-radius: 30px;
   border: none;
   background: #ff0050;
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
 }
-
+button:active {
+  opacity: 0.7;
+}
 #server-status {
-  margin-top: 18px;
+  margin-top: 20px;
   font-size: 13px;
   color: #aaa;
+  line-height: 1.5;
 }
 </style>
 </head>
@@ -75,34 +77,41 @@ button {
   <div class="title">MacTok <span style="color:#ff0050;">PRO</span></div>
   <div class="subtitle">Mobile Engine</div>
 
-  <input type="text" placeholder="TikTok ID（例: macdonald）" disabled>
+  <input type="text" id="tiktok-id" placeholder="TikTok ID（例: macdonald）">
 
-  <button>準備完了</button>
+  <button onclick="startProcess()">準備完了</button>
 
   <div id="server-status">🔄 サーバー確認中...</div>
 </div>
 
 <script>
+// ボタンを押した時の処理
+function startProcess() {
+  const idInput = document.getElementById("tiktok-id");
+  const id = idInput.value.trim();
+
+  if (!id) {
+    alert("TikTok IDを入力してください！");
+    return;
+  }
+  
+  alert("ID: " + id + " でセットアップを開始します。");
+  // ここに将来的な処理（API呼び出しなど）を追加できます
+}
+
+// サーバー稼働チェック
 async function checkServerStatus() {
   const el = document.getElementById("server-status");
-
   try {
     const res = await fetch("/health");
     const data = await res.json();
-
-    el.innerHTML =
-      "🟢 Server : ONLINE<br>" +
-      "🖥 Platform : " + data.platform + "<br>" +
-      "🕒 " + new Date(data.time).toLocaleTimeString();
-
+    el.innerHTML = "🟢 Server : ONLINE<br>🖥 Platform : " + data.platform + "<br>🕒 " + new Date().toLocaleTimeString();
     el.style.color = "#2ecc71";
-
   } catch (e) {
     el.innerHTML = "🔴 Server : OFFLINE";
     el.style.color = "#ff4444";
   }
 }
-
 checkServerStatus();
 </script>
 
