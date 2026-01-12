@@ -6,18 +6,21 @@
 <title>MacTok Engine PRO</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-  body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .card { background: #111; border-radius: 20px; padding: 25px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 0 30px rgba(255,0,80,0.4); }
-  .title { font-size: 26px; font-weight: bold; margin-bottom: 20px; }
-  input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #333; background: #1a1a1a; color: #fff; font-size: 16px; text-align: center; box-sizing: border-box; }
-  button { width: 100%; padding: 15px; border-radius: 30px; border: none; background: #ff0050; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; }
-  #profile-area { margin-top: 20px; padding: 15px; background: #1a1a1a; border-radius: 12px; display: none; }
-  .avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #ff0050; }
+  body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: #111; border-radius: 24px; padding: 25px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 0 40px rgba(255,0,80,0.4); border: 1px solid #222; }
+  .title { font-size: 26px; font-weight: bold; margin-bottom: 20px; letter-spacing: 1px; }
+  input { width: 100%; padding: 16px; margin-bottom: 15px; border-radius: 14px; border: 1px solid #333; background: #1a1a1a; color: #fff; font-size: 16px; text-align: center; box-sizing: border-box; outline: none; }
+  input:focus { border-color: #ff0050; }
+  button { width: 100%; padding: 16px; border-radius: 30px; border: none; background: #ff0050; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+  button:active { transform: scale(0.98); opacity: 0.8; }
+  #profile-area { margin-top: 20px; padding: 15px; background: #1a1a1a; border-radius: 15px; display: none; border: 1px solid #222; }
+  .avatar { width: 55px; height: 55px; border-radius: 50%; border: 2px solid #ff0050; margin-bottom: 10px; }
   #live-container { margin-top: 20px; display: none; }
-  #comment-box { height: 150px; overflow-y: auto; background: #050505; border-radius: 10px; padding: 10px; text-align: left; font-size: 13px; border: 1px solid #222; }
-  .comment { margin-bottom: 5px; border-bottom: 1px solid #111; padding-bottom: 2px; }
-  .user { color: #ff0050; font-weight: bold; margin-right: 5px; }
-  #status-label { font-size: 12px; color: #666; margin-top: 15px; display: block; }
+  #comment-box { height: 160px; overflow-y: auto; background: #080808; border-radius: 12px; padding: 12px; text-align: left; font-size: 14px; border: 1px solid #222; }
+  .comment { margin-bottom: 8px; line-height: 1.4; border-bottom: 1px solid #111; padding-bottom: 4px; animation: slideIn 0.2s ease-out; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+  .user { color: #ff0050; font-weight: bold; margin-right: 6px; font-size: 12px; }
+  #status-label { font-size: 12px; color: #777; margin-top: 20px; display: block; }
 </style>
 </head>
 <body>
@@ -29,21 +32,27 @@
 
   <div id="profile-area">
     <img id="u-avatar" class="avatar" src="">
-    <div id="u-name" style="margin: 10px 0; font-weight: bold;"></div>
-    <div style="font-size: 12px; color: #aaa;">フォロワー: <span id="u-followers" style="color:#fff"></span></div>
+    <div id="u-name" style="font-weight: bold; font-size: 18px;"></div>
+    <div id="u-followers" style="font-size: 13px; color: #aaa; margin-top: 5px;"></div>
   </div>
 
   <div id="live-container">
-    <div style="font-size: 12px; color: #ff0050; margin-bottom: 5px; font-weight: bold;">LIVE COMMENT READER</div>
+    <div style="font-size: 11px; color: #ff0050; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px;">LIVE COMMENT READER</div>
     <div id="comment-box"></div>
   </div>
 
-  <span id="status-label">Ready</span>
+  <span id="status-label">システム待機中</span>
 </div>
 
 <script>
-// 再接続設定を強化
-const socket = io({ reconnectionAttempts: 5, timeout: 10000 });
+// ポーリングを強制し、タイムアウトを長く設定
+const socket = io({ 
+  transports: ["polling"], 
+  reconnection: true,
+  reconnectionDelay: 1000,
+  timeout: 20000 
+});
+
 const synth = window.speechSynthesis;
 
 async function runEngine() {
@@ -51,7 +60,7 @@ async function runEngine() {
   const status = document.getElementById("status-label");
   if (!id) return;
 
-  status.innerText = "🔍 準備中...";
+  status.innerText = "⏳ データベース照合中...";
 
   try {
     const res = await fetch(`/api/tiktok/${id}`);
@@ -60,17 +69,19 @@ async function runEngine() {
     if (!data.error) {
       document.getElementById("u-avatar").src = data.user.avatarThumb;
       document.getElementById("u-name").innerText = data.user.nickname;
-      document.getElementById("u-followers").innerText = data.stats.followerCount.toLocaleString();
+      document.getElementById("u-followers").innerText = "フォロワー: " + data.stats.followerCount.toLocaleString();
       document.getElementById("profile-area").style.display = "block";
       
-      status.innerText = "📡 ライブ接続開始...";
+      status.innerText = "📡 ライブサーバーへ接続要求...";
       document.getElementById("live-container").style.display = "block";
+      
+      // ライブ接続イベント送信
       socket.emit("connect-live", id);
     } else {
-      status.innerText = "❌ ユーザーが見つかりません";
+      status.innerText = "❌ IDが見つかりません";
     }
   } catch (e) {
-    status.innerText = "❌ 通信エラー";
+    status.innerText = "❌ ネットワークエラー";
   }
 }
 
@@ -78,14 +89,14 @@ socket.on("new-comment", (data) => {
   const box = document.getElementById("comment-box");
   const el = document.createElement("div");
   el.className = "comment";
-  el.innerHTML = `<span class="user">${data.user}:</span>${data.text}`;
+  el.innerHTML = `<span class="user">@${data.user}</span><br>${data.text}`;
   box.prepend(el);
 
-  // 読み上げ（キューが溜まりすぎないよう調整）
-  if (synth.speaking) { /* 読み上げ中の場合はスキップせず待機（ブラウザ標準機能） */ }
+  // 音声読み上げ
   const utter = new SpeechSynthesisUtterance(data.text);
   utter.lang = 'ja-JP';
   utter.rate = 1.2;
+  utter.pitch = 1.0;
   synth.speak(utter);
 });
 
@@ -93,8 +104,9 @@ socket.on("live-status", (msg) => {
   document.getElementById("status-label").innerText = msg;
 });
 
-socket.on("connect_error", () => {
-  document.getElementById("status-label").innerText = "❌ サーバー接続失敗";
+socket.on("connect_error", (err) => {
+  console.log("Connection Error:", err);
+  document.getElementById("status-label").innerText = "⚠️ サーバー再接続中...";
 });
 </script>
 </body>
