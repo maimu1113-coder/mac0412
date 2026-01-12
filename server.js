@@ -7,7 +7,9 @@ const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: { origin: "*" } // 接続許可を広げて安定させます
+});
 const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
@@ -27,22 +29,31 @@ app.get("/api/tiktok/:id", async (req, res) => {
   }
 });
 
-// --- ライブコメント接続 (Socket.io) ---
+// --- ライブコメント接続 ---
 io.on("connection", (socket) => {
   let tiktokLive;
 
   socket.on("connect-live", (tiktokId) => {
-    if (tiktokLive) tiktokLive.disconnect();
+    if (tiktokLive) {
+      tiktokLive.disconnect();
+    }
     
     tiktokLive = new WebcastPushConnection(tiktokId);
+
     tiktokLive.connect().then(state => {
-      socket.emit("live-status", "LIVE接続中...");
+      socket.emit("live-status", "🟢 LIVE接続中...");
     }).catch(err => {
-      socket.emit("live-status", "ライブオフライン");
+      console.error(err);
+      socket.emit("live-status", "❌ ライブがオフラインです");
     });
 
     tiktokLive.on("chat", (data) => {
-      io.emit("new-comment", { user: data.uniqueId, text: data.comment });
+      socket.emit("new-comment", { user: data.uniqueId, text: data.comment });
+    });
+
+    // エラー発生時の通知
+    tiktokLive.on("error", (err) => {
+      socket.emit("live-status", "❌ 通信エラー発生");
     });
   });
 
