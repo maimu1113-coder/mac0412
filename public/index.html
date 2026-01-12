@@ -2,58 +2,38 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MacTok PRO</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-  body { margin: 0; background: #0b0b0b; color: #fff; font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .card { background: #111; border-radius: 24px; padding: 25px; width: 90%; max-width: 380px; text-align: center; border: 1px solid #222; box-shadow: 0 0 50px rgba(255,0,80,0.2); }
-  .title { font-size: 24px; font-weight: bold; margin-bottom: 20px; }
-  span.pro { color: #ff0050; }
-  input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #333; background: #222; color: #fff; text-align: center; font-size: 16px; box-sizing: border-box; }
-  button { width: 100%; padding: 15px; border-radius: 30px; border: none; background: #ff0050; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; margin-bottom: 20px; transition: 0.2s; }
+  body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: #111; border-radius: 25px; padding: 25px; width: 90%; max-width: 380px; text-align: center; border: 1px solid #222; box-shadow: 0 0 40px rgba(255,0,80,0.2); }
+  .pro { color: #ff0050; font-weight: bold; }
+  input { width: 100%; padding: 18px; margin-bottom: 20px; border-radius: 15px; border: 1px solid #333; background: #000; color: #fff; text-align: center; font-size: 18px; box-sizing: border-box; }
+  button { width: 100%; padding: 18px; border-radius: 40px; border: none; background: #ff0050; color: #fff; font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; }
   button:active { transform: scale(0.95); }
-  
-  #profile-area { display: none; margin-bottom: 20px; animation: fadeIn 0.5s; }
-  .avatar { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #ff0050; margin-bottom: 10px; }
-  .name { font-weight: bold; font-size: 18px; margin-bottom: 5px; }
-  .followers { color: #aaa; font-size: 13px; }
-
-  #live-container { background: #000; border-radius: 15px; height: 200px; padding: 15px; border: 1px solid #222; overflow-y: auto; text-align: left; }
-  .comment { margin-bottom: 10px; border-bottom: 1px solid #1a1a1a; padding-bottom: 5px; font-size: 14px; }
-  .user { color: #ff0050; font-weight: bold; font-size: 12px; margin-right: 5px; }
-  #status-label { margin-top: 15px; font-size: 12px; color: #666; display: block; }
-  
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  #comment-box { height: 250px; overflow-y: auto; background: #050505; border-radius: 15px; padding: 15px; text-align: left; font-size: 15px; margin-top: 20px; border: 1px solid #222; }
+  .comment { margin-bottom: 12px; border-bottom: 1px solid #111; padding-bottom: 8px; line-height: 1.4; }
+  .user { color: #ff0050; font-weight: bold; font-size: 11px; }
+  #status-label { font-size: 13px; color: #666; margin-top: 15px; display: block; }
 </style>
 </head>
 <body>
-
 <div class="card">
-  <div class="title">MacTok <span class="pro">PRO</span></div>
-  <input type="text" id="tiktok-id" placeholder="IDを入力 (例: userxxx)">
-  <button onclick="runEngine()">エンジン始動</button>
-
-  <div id="profile-area">
-    <img id="p-avatar" class="avatar" src="">
-    <div id="p-name" class="name"></div>
-    <div id="p-followers" class="followers"></div>
-  </div>
-
-  <div style="font-size:11px; color:#ff0050; font-weight:bold; margin-bottom:5px; text-align:left; padding-left:10px;">LIVE COMMENT READER</div>
-  <div id="live-container">
-    <div style="color:#555; text-align:center; margin-top:80px;">待機中...</div>
-  </div>
+  <div style="font-size: 24px; font-weight: bold; margin-bottom: 25px;">MacTok <span class="pro">PRO</span></div>
+  <input type="text" id="id-input" placeholder="IDを入力 (例: Katoutokuiten1)">
+  <button onclick="start()">エンジン始動</button>
+  <div id="comment-box">コメント待機中...</div>
   <span id="status-label">Ready</span>
 </div>
 
 <script>
 const socket = io({ transports: ["polling"] });
 const synth = window.speechSynthesis;
-let voiceReady = false;
+let isVoiceOk = false;
 
 function speak(text) {
-    if(!voiceReady) return;
+    if (!isVoiceOk) return;
     synth.cancel();
     const ut = new SpeechSynthesisUtterance(text);
     ut.lang = 'ja-JP';
@@ -61,52 +41,27 @@ function speak(text) {
     synth.speak(ut);
 }
 
-async function runEngine() {
-    const id = document.getElementById("tiktok-id").value.trim();
+async function start() {
+    const id = document.getElementById("id-input").value.trim();
     if (!id) return;
-
-    // 音声エンジンのスイッチを入れる
-    voiceReady = true;
-    speak("接続を開始します");
-
-    document.getElementById("status-label").innerText = "⏳ データを取得中...";
-
-    // 1. まずプロフィールを表示
-    try {
-        const res = await fetch(`/api/tiktok/${id}`);
-        const data = await res.json();
-        if (data.nickname) {
-            document.getElementById("profile-area").style.display = "block";
-            document.getElementById("p-avatar").src = data.avatarThumb;
-            document.getElementById("p-name").innerText = data.nickname;
-            document.getElementById("p-followers").innerText = "フォロワー: " + data.stats.followerCount.toLocaleString();
-        }
-    } catch (e) { console.log("Profile load failed"); }
-
-    // 2. ライブ接続開始
-    document.getElementById("live-container").innerHTML = ""; // クリア
+    isVoiceOk = true;
+    speak(" "); // 音声エンジンのアクティベート
+    document.getElementById("status-label").innerText = "⏳ 接続しています...";
     socket.emit("connect-live", id);
 }
 
 socket.on("new-comment", (data) => {
-    const box = document.getElementById("live-container");
-    const div = document.createElement("div");
-    div.className = "comment";
-    div.innerHTML = `<span class="user">@${data.nickname || data.user}</span> ${data.text}`;
-    box.prepend(div);
+    const box = document.getElementById("comment-box");
+    if(box.innerText.includes("待機中")) box.innerHTML = "";
+    const el = document.createElement("div");
+    el.className = "comment";
+    el.innerHTML = `<span class="user">@${data.user}</span><br>${data.text}`;
+    box.prepend(el);
     speak(data.text);
 });
 
 socket.on("live-status", (msg) => {
-    const label = document.getElementById("status-label");
-    label.innerText = msg;
-    if (msg.includes("失敗") || msg.includes("ブロック")) {
-        label.style.color = "red";
-    } else if (msg.includes("成功")) {
-        label.style.color = "#00ff00";
-    } else {
-        label.style.color = "#aaa";
-    }
+    document.getElementById("status-label").innerText = msg;
 });
 </script>
 </body>
