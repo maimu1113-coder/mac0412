@@ -6,94 +6,63 @@
 <title>MacTok Engine PRO</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-  body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .card { background: #111; border-radius: 24px; padding: 25px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 0 40px rgba(255,0,80,0.4); border: 1px solid #222; }
-  .title { font-size: 26px; font-weight: bold; margin-bottom: 20px; }
-  input { width: 100%; padding: 16px; margin-bottom: 15px; border-radius: 14px; border: 1px solid #333; background: #1a1a1a; color: #fff; font-size: 16px; text-align: center; box-sizing: border-box; outline: none; }
-  button { width: 100%; padding: 16px; border-radius: 30px; border: none; background: #ff0050; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-  button:active { transform: scale(0.95); }
-  #profile-area { margin-top: 20px; padding: 15px; background: #1a1a1a; border-radius: 15px; display: none; }
-  .avatar { width: 55px; height: 55px; border-radius: 50%; border: 2px solid #ff0050; margin-bottom: 10px; }
-  #live-container { margin-top: 20px; display: none; }
-  #comment-box { height: 160px; overflow-y: auto; background: #080808; border-radius: 12px; padding: 12px; text-align: left; font-size: 14px; border: 1px solid #222; }
-  .comment { margin-bottom: 8px; border-bottom: 1px solid #111; padding-bottom: 4px; }
-  .user { color: #ff0050; font-weight: bold; margin-right: 6px; font-size: 11px; }
+  body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: #111; border-radius: 24px; padding: 25px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 0 40px rgba(255,0,80,0.4); }
+  input { width: 100%; padding: 16px; margin-bottom: 15px; border-radius: 14px; border: 1px solid #333; background: #1a1a1a; color: #fff; text-align: center; box-sizing: border-box; }
+  button { width: 100%; padding: 16px; border-radius: 30px; border: none; background: #ff0050; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; }
+  #comment-box { height: 160px; overflow-y: auto; background: #080808; border-radius: 12px; padding: 12px; text-align: left; font-size: 14px; margin-top: 20px; border: 1px solid #222; }
+  .comment { margin-bottom: 8px; border-bottom: 1px solid #111; }
+  .user { color: #ff0050; font-weight: bold; font-size: 11px; }
   #status-label { font-size: 12px; color: #777; margin-top: 20px; display: block; }
 </style>
 </head>
 <body>
 
 <div class="card">
-  <div class="title">MacTok <span style="color:#ff0050;">PRO</span></div>
+  <div style="font-size: 24px; font-weight: bold; margin-bottom: 20px;">MacTok <span style="color:#ff0050;">PRO</span></div>
   <input type="text" id="tiktok-id" placeholder="TikTok IDを入力">
   <button id="main-btn" onclick="runEngine()">エンジン始動</button>
-  <div id="profile-area">
-    <img id="u-avatar" class="avatar" src="">
-    <div id="u-name" style="font-weight: bold; font-size: 18px;"></div>
-    <div id="u-followers" style="font-size: 13px; color: #aaa; margin-top: 5px;"></div>
-  </div>
-  <div id="live-container">
-    <div style="font-size: 11px; color: #ff0050; margin-bottom: 8px; font-weight: bold;">LIVE COMMENT READER</div>
+
+  <div id="live-container" style="display:none;">
     <div id="comment-box"></div>
   </div>
-  <span id="status-label">システム待機中</span>
+
+  <span id="status-label">Ready</span>
 </div>
 
 <script>
 const socket = io({ transports: ["polling"] });
 const synth = window.speechSynthesis;
-let voices = [];
+let isVoiceReady = false;
 
-// ブラウザの準備ができたら声をロードする
-function loadVoices() {
-    voices = synth.getVoices();
-}
-if (speechSynthesis.onvoiceschanged !== undefined) {
-    speechSynthesis.onvoiceschanged = loadVoices;
-}
-
-// 読み上げ実行関数
-function speak(text) {
-    // 前の読み上げをキャンセルして最新を優先
+// 音声リストを強制的に読み込む
+function prepareVoice() {
     synth.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    
-    // 日本語の声をセット（なければ自動）
-    utter.lang = 'ja-JP';
-    utter.rate = 1.2;
-    utter.pitch = 1.0;
-    utter.volume = 1.0;
-    
-    // 声が出るかデバッグ
-    console.log("Speaking: " + text);
-    synth.speak(utter);
+    const msg = new SpeechSynthesisUtterance("読み上げを開始します");
+    msg.lang = 'ja-JP';
+    msg.volume = 1.0;
+    synth.speak(msg);
+    isVoiceReady = true;
 }
 
 async function runEngine() {
   const id = document.getElementById("tiktok-id").value.trim();
-  const status = document.getElementById("status-label");
   if (!id) return;
 
-  // 重要：ボタンを押した瞬間にテスト再生して「音声許可」を確定させる
-  speak("接続を開始します");
+  // ボタンクリック時に音声を強制初期化
+  prepareVoice();
 
-  status.innerText = "⏳ データを照合中...";
+  document.getElementById("status-label").innerText = "⏳ 接続中...";
+  
   try {
     const res = await fetch(`/api/tiktok/${id}`);
     const data = await res.json();
     if (!data.error) {
-      document.getElementById("u-avatar").src = data.user.avatarThumb;
-      document.getElementById("u-name").innerText = data.user.nickname;
-      document.getElementById("u-followers").innerText = "フォロワー: " + data.stats.followerCount.toLocaleString();
-      document.getElementById("profile-area").style.display = "block";
-      status.innerText = "📡 ライブ接続中...";
       document.getElementById("live-container").style.display = "block";
       socket.emit("connect-live", id);
-    } else {
-      status.innerText = "❌ IDが見つかりません";
     }
   } catch (e) {
-    status.innerText = "❌ 通信エラー";
+    document.getElementById("status-label").innerText = "❌ エラー";
   }
 }
 
@@ -104,8 +73,13 @@ socket.on("new-comment", (data) => {
   el.innerHTML = `<span class="user">@${data.user}</span><br>${data.text}`;
   box.prepend(el);
 
-  // 読み上げ実行
-  speak(data.text);
+  // 読み上げ
+  if (isVoiceReady) {
+    const utter = new SpeechSynthesisUtterance(data.text);
+    utter.lang = 'ja-JP';
+    utter.rate = 1.2;
+    synth.speak(utter);
+  }
 });
 
 socket.on("live-status", (msg) => {
