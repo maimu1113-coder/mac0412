@@ -2,7 +2,6 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const { WebcastPushConnection } = require("tiktok-live-connect");
-const axios = require("axios");
 const path = require("path");
 
 const app = express();
@@ -11,47 +10,55 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// プロフィールAPI
-app.get("/api/tiktok/:id", async (req, res) => {
-    try {
-        const response = await axios.get(`https://www.tikwm.com/api/user/info?unique_id=${req.params.id}`);
-        res.json(response.data.data || { error: "NotFound" });
-    } catch (e) { res.status(500).json({ error: "API Error" }); }
-});
-
 io.on("connection", (socket) => {
     let tiktokLive;
 
-    socket.on("connect-live", (uniqueId) => {
+    socket.on("connect-live", (tiktokId) => {
         if (tiktokLive) tiktokLive.disconnect();
 
-        // 接続の質を高める設定
-        tiktokLive = new WebcastPushConnection(uniqueId, {
+        // 【最強ポイント】本物の最新iPhoneからアクセスしているように偽装
+        tiktokLive = new WebcastPushConnection(tiktokId, {
             processInitialData: false,
-            enableExtendedGiftInfo: true,
             fetchOptions: {
-                headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1' }
-            }
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
+                    'Referer': 'https://www.tiktok.com/',
+                    'Origin': 'https://www.tiktok.com',
+                    'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7'
+                }
+            },
+            // 接続パラメータを公式アプリに合わせる
+            clientParams: {
+                "app_language": "ja-JP",
+                "device_platform": "web_pc",
+                "aid": 1988
+            },
+            requestPollingIntervalMs: 1500
         });
 
-        const tryConnect = () => {
+        const startConnection = () => {
             tiktokLive.connect().then(state => {
-                socket.emit("live-status", "🟢 接続成功！読み上げ開始します");
+                socket.emit("live-status", "🟢 接続成功！コメントを読み込みます");
             }).catch(err => {
-                socket.emit("live-status", "❌ 接続失敗...再試行中");
-                setTimeout(tryConnect, 5000); // 失敗しても5秒おきに繋ぎ続ける
+                // ブロックされた場合、5秒後に自動で再試行（執念深く繋ぎにいく）
+                socket.emit("live-status", "⚠️ 待機中（TikTokの制限を回避中...）");
+                setTimeout(startConnection, 5000);
             });
         };
 
-        tryConnect();
+        startConnection();
 
         tiktokLive.on("chat", (data) => {
             socket.emit("new-comment", { user: data.uniqueId, text: data.comment, nickname: data.nickname });
         });
 
+        tiktokLive.on("error", (err) => {
+            console.log("Stream Error:", err.message);
+        });
+
         tiktokLive.on("disconnected", () => {
-            socket.emit("live-status", "⚪️ 接続が切れました。再接続します");
-            setTimeout(tryConnect, 3000);
+            socket.emit("live-status", "⚪️ 接続が切れました。再起動します");
+            setTimeout(startConnection, 3000);
         });
     });
 });
