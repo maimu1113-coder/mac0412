@@ -27,53 +27,67 @@
   <div class="title">MacTok <span style="color:#ff0050;">PRO</span></div>
   <input type="text" id="tiktok-id" placeholder="TikTok IDを入力">
   <button id="main-btn" onclick="runEngine()">エンジン始動</button>
-
   <div id="profile-area">
     <img id="u-avatar" class="avatar" src="">
     <div id="u-name" style="font-weight: bold; font-size: 18px;"></div>
     <div id="u-followers" style="font-size: 13px; color: #aaa; margin-top: 5px;"></div>
   </div>
-
   <div id="live-container">
     <div style="font-size: 11px; color: #ff0050; margin-bottom: 8px; font-weight: bold;">LIVE COMMENT READER</div>
     <div id="comment-box"></div>
   </div>
-
   <span id="status-label">システム待機中</span>
 </div>
 
 <script>
-// ポーリング方式を指定して接続を安定させる
 const socket = io({ transports: ["polling"] });
 const synth = window.speechSynthesis;
-let voiceEnabled = false;
+let voices = [];
+
+// ブラウザの準備ができたら声をロードする
+function loadVoices() {
+    voices = synth.getVoices();
+}
+if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+// 読み上げ実行関数
+function speak(text) {
+    // 前の読み上げをキャンセルして最新を優先
+    synth.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    
+    // 日本語の声をセット（なければ自動）
+    utter.lang = 'ja-JP';
+    utter.rate = 1.2;
+    utter.pitch = 1.0;
+    utter.volume = 1.0;
+    
+    // 声が出るかデバッグ
+    console.log("Speaking: " + text);
+    synth.speak(utter);
+}
 
 async function runEngine() {
   const id = document.getElementById("tiktok-id").value.trim();
   const status = document.getElementById("status-label");
   if (!id) return;
 
-  // 重要：ボタン操作に連動させて音声制限を解除
-  const ut = new SpeechSynthesisUtterance("");
-  synth.speak(ut);
-  voiceEnabled = true;
+  // 重要：ボタンを押した瞬間にテスト再生して「音声許可」を確定させる
+  speak("接続を開始します");
 
   status.innerText = "⏳ データを照合中...";
-
   try {
     const res = await fetch(`/api/tiktok/${id}`);
     const data = await res.json();
-
     if (!data.error) {
       document.getElementById("u-avatar").src = data.user.avatarThumb;
       document.getElementById("u-name").innerText = data.user.nickname;
       document.getElementById("u-followers").innerText = "フォロワー: " + data.stats.followerCount.toLocaleString();
       document.getElementById("profile-area").style.display = "block";
-      
-      status.innerText = "📡 ライブサーバーに接続中...";
+      status.innerText = "📡 ライブ接続中...";
       document.getElementById("live-container").style.display = "block";
-      
-      // ライブ接続要求を送信
       socket.emit("connect-live", id);
     } else {
       status.innerText = "❌ IDが見つかりません";
@@ -83,7 +97,6 @@ async function runEngine() {
   }
 }
 
-// コメント受信と読み上げ
 socket.on("new-comment", (data) => {
   const box = document.getElementById("comment-box");
   const el = document.createElement("div");
@@ -91,21 +104,12 @@ socket.on("new-comment", (data) => {
   el.innerHTML = `<span class="user">@${data.user}</span><br>${data.text}`;
   box.prepend(el);
 
-  if (voiceEnabled) {
-    const utter = new SpeechSynthesisUtterance(data.text);
-    utter.lang = 'ja-JP';
-    utter.rate = 1.2; // 読み上げ速度
-    utter.pitch = 1.0;
-    synth.speak(utter);
-  }
+  // 読み上げ実行
+  speak(data.text);
 });
 
 socket.on("live-status", (msg) => {
   document.getElementById("status-label").innerText = msg;
-});
-
-socket.on("connect_error", () => {
-  document.getElementById("status-label").innerText = "⚠️ サーバー再接続中...";
 });
 </script>
 </body>
