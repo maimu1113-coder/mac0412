@@ -1,46 +1,37 @@
 // ==============================
-// mactok-engine server.js
+// server.js（Render用 完成版）
 // ==============================
 
 const express = require("express");
-const app = express();
+const path = require("path");
 
-// Renderが自動で割り当てるPORTを使う
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 // JSONを扱えるようにする
 app.use(express.json());
 
 // ------------------------------
-// ルート確認（ブラウザ用）
+// トップページ（index.html）
 // ------------------------------
 app.get("/", (req, res) => {
-  res.send("mactok-engine is running 🚀");
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // ------------------------------
-// 接続テスト用（最重要）
+// サーバー起動状態チェック
 // ------------------------------
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
-    service: "mactok-engine",
+    platform: "Render",
+    server: "Node.js",
     time: new Date().toISOString()
   });
 });
 
 // ------------------------------
-// TikTok連携用ダミーAPI（今はテスト）
-// ------------------------------
-app.get("/tiktok/test", (req, res) => {
-  res.json({
-    message: "TikTok connection test success",
-    live: false
-  });
-});
-
-// ------------------------------
-// 404対策（Not Found防止）
+// 404対策
 // ------------------------------
 app.use((req, res) => {
   res.status(404).send("Not Found");
