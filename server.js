@@ -1,5 +1,5 @@
 // ==============================
-// server.js（Render用 完成版）
+// server.js（修正版）
 // ==============================
 
 const express = require("express");
@@ -11,11 +11,16 @@ const PORT = process.env.PORT || 3000;
 // JSONを扱えるようにする
 app.use(express.json());
 
+// 【重要】カレントディレクトリのファイルを静的ファイルとして公開する設定
+// これにより CSSやJSを分離しても読み込めるようになります
+app.use(express.static(__dirname));
+
 // ------------------------------
 // トップページ（index.html）
 // ------------------------------
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  // パスを確実に結合する
+  res.sendFile(path.resolve(__dirname, "index.html"));
 });
 
 // ------------------------------
