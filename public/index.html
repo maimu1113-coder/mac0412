@@ -2,94 +2,109 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mac Talk PRO</title>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MacTok Engine</title>
 
 <style>
-.subtitle {
-  font-size: 32px;
+body {
+  margin: 0;
+  background: #000;
   color: #fff;
-  background: rgba(0,0,0,0.6);
-  padding: 12px 20px;
-  border-radius: 12px;
-  opacity: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
 }
-.subtitle.show {
-  animation: fade 5s ease forwards;
+
+.card {
+  background: #111;
+  border-radius: 16px;
+  padding: 25px;
+  width: 90%;
+  max-width: 360px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(255,0,80,0.3);
 }
-@keyframes fade {
-  0% {opacity:0; transform:translateY(20px);}
-  10% {opacity:1; transform:translateY(0);}
-  90% {opacity:1;}
-  100% {opacity:0;}
+
+.title {
+  font-size: 26px;
+  font-weight: bold;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 20px;
+}
+
+input {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 15px;
+  border-radius: 10px;
+  border: none;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 16px;
+  text-align: center;
+}
+
+button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 30px;
+  border: none;
+  background: #ff0050;
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+#server-status {
+  margin-top: 18px;
+  font-size: 13px;
+  color: #aaa;
 }
 </style>
 </head>
 
-<body style="background:#000;color:#fff;text-align:center;">
-<h1>Mac Talk PRO</h1>
+<body>
 
-<input id="targetId" placeholder="TikTok ID">
-<button id="start">START</button>
+<div class="card">
+  <div class="title">MacTok <span style="color:#ff0050;">PRO</span></div>
+  <div class="subtitle">Mobile Engine</div>
 
-<div id="subtitle" class="subtitle"></div>
+  <input type="text" placeholder="TikTok ID（例: macdonald）" disabled>
 
-<!-- PIP維持用 -->
-<video id="pipVideo" muted autoplay playsinline loop
- style="width:1px;height:1px;position:fixed;left:-10px;top:-10px;"></video>
+  <button>準備完了</button>
+
+  <div id="server-status">🔄 サーバー確認中...</div>
+</div>
 
 <script>
-const socket = io();
-let speaking = false;
-const queue = [];
+async function checkServerStatus() {
+  const el = document.getElementById("server-status");
 
-/* PIP維持 */
-const pipVideo = document.getElementById("pipVideo");
-const canvas = document.createElement("canvas");
-canvas.width = canvas.height = 1;
-pipVideo.srcObject = canvas.captureStream();
-pipVideo.play().then(()=>{
-  if(pipVideo.webkitSetPresentationMode){
-    pipVideo.webkitSetPresentationMode("picture-in-picture");
+  try {
+    const res = await fetch("/health");
+    const data = await res.json();
+
+    el.innerHTML =
+      "🟢 Server : ONLINE<br>" +
+      "🖥 Platform : " + data.platform + "<br>" +
+      "🕒 " + new Date(data.time).toLocaleTimeString();
+
+    el.style.color = "#2ecc71";
+
+  } catch (e) {
+    el.innerHTML = "🔴 Server : OFFLINE";
+    el.style.color = "#ff4444";
   }
-});
-
-/* START */
-document.getElementById("start").onclick = () => {
-  const id = document.getElementById("targetId").value;
-  speechSynthesis.speak(new SpeechSynthesisUtterance("起動します"));
-  socket.emit("start", id);
-};
-
-/* 音声キュー */
-socket.on("voice", b64 => {
-  queue.push(b64);
-  if (!speaking) playNext();
-});
-
-function playNext(){
-  if(queue.length === 0){
-    speaking = false;
-    return;
-  }
-  speaking = true;
-  const audio = new Audio("data:audio/wav;base64," + queue.shift());
-  audio.onended = playNext;
-  audio.play();
 }
 
-/* 字幕 */
-socket.on("subtitle", text => {
-  const el = document.getElementById("subtitle");
-  el.innerText = text;
-  el.classList.remove("show");
-  void el.offsetWidth;
-  el.classList.add("show");
-});
-
-/* Ping */
-setInterval(()=>socket.emit("ping"),20000);
+checkServerStatus();
 </script>
+
 </body>
 </html>
