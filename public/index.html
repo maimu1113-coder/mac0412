@@ -6,20 +6,18 @@
 <title>MacTok Engine PRO</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-  body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
   .card { background: #111; border-radius: 24px; padding: 25px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 0 40px rgba(255,0,80,0.4); border: 1px solid #222; }
-  .title { font-size: 26px; font-weight: bold; margin-bottom: 20px; letter-spacing: 1px; }
+  .title { font-size: 26px; font-weight: bold; margin-bottom: 20px; }
   input { width: 100%; padding: 16px; margin-bottom: 15px; border-radius: 14px; border: 1px solid #333; background: #1a1a1a; color: #fff; font-size: 16px; text-align: center; box-sizing: border-box; outline: none; }
-  input:focus { border-color: #ff0050; }
   button { width: 100%; padding: 16px; border-radius: 30px; border: none; background: #ff0050; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-  button:active { transform: scale(0.98); opacity: 0.8; }
-  #profile-area { margin-top: 20px; padding: 15px; background: #1a1a1a; border-radius: 15px; display: none; border: 1px solid #222; }
+  button:active { transform: scale(0.95); }
+  #profile-area { margin-top: 20px; padding: 15px; background: #1a1a1a; border-radius: 15px; display: none; }
   .avatar { width: 55px; height: 55px; border-radius: 50%; border: 2px solid #ff0050; margin-bottom: 10px; }
   #live-container { margin-top: 20px; display: none; }
   #comment-box { height: 160px; overflow-y: auto; background: #080808; border-radius: 12px; padding: 12px; text-align: left; font-size: 14px; border: 1px solid #222; }
-  .comment { margin-bottom: 8px; line-height: 1.4; border-bottom: 1px solid #111; padding-bottom: 4px; animation: slideIn 0.2s ease-out; }
-  @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-  .user { color: #ff0050; font-weight: bold; margin-right: 6px; font-size: 12px; }
+  .comment { margin-bottom: 8px; border-bottom: 1px solid #111; padding-bottom: 4px; }
+  .user { color: #ff0050; font-weight: bold; margin-right: 6px; font-size: 11px; }
   #status-label { font-size: 12px; color: #777; margin-top: 20px; display: block; }
 </style>
 </head>
@@ -37,7 +35,7 @@
   </div>
 
   <div id="live-container">
-    <div style="font-size: 11px; color: #ff0050; margin-bottom: 8px; font-weight: bold; letter-spacing: 1px;">LIVE COMMENT READER</div>
+    <div style="font-size: 11px; color: #ff0050; margin-bottom: 8px; font-weight: bold;">LIVE COMMENT READER</div>
     <div id="comment-box"></div>
   </div>
 
@@ -45,22 +43,22 @@
 </div>
 
 <script>
-// ポーリングを強制し、タイムアウトを長く設定
-const socket = io({ 
-  transports: ["polling"], 
-  reconnection: true,
-  reconnectionDelay: 1000,
-  timeout: 20000 
-});
-
+// ポーリング方式を指定して接続を安定させる
+const socket = io({ transports: ["polling"] });
 const synth = window.speechSynthesis;
+let voiceEnabled = false;
 
 async function runEngine() {
   const id = document.getElementById("tiktok-id").value.trim();
   const status = document.getElementById("status-label");
   if (!id) return;
 
-  status.innerText = "⏳ データベース照合中...";
+  // 重要：ボタン操作に連動させて音声制限を解除
+  const ut = new SpeechSynthesisUtterance("");
+  synth.speak(ut);
+  voiceEnabled = true;
+
+  status.innerText = "⏳ データを照合中...";
 
   try {
     const res = await fetch(`/api/tiktok/${id}`);
@@ -72,19 +70,20 @@ async function runEngine() {
       document.getElementById("u-followers").innerText = "フォロワー: " + data.stats.followerCount.toLocaleString();
       document.getElementById("profile-area").style.display = "block";
       
-      status.innerText = "📡 ライブサーバーへ接続要求...";
+      status.innerText = "📡 ライブサーバーに接続中...";
       document.getElementById("live-container").style.display = "block";
       
-      // ライブ接続イベント送信
+      // ライブ接続要求を送信
       socket.emit("connect-live", id);
     } else {
       status.innerText = "❌ IDが見つかりません";
     }
   } catch (e) {
-    status.innerText = "❌ ネットワークエラー";
+    status.innerText = "❌ 通信エラー";
   }
 }
 
+// コメント受信と読み上げ
 socket.on("new-comment", (data) => {
   const box = document.getElementById("comment-box");
   const el = document.createElement("div");
@@ -92,20 +91,20 @@ socket.on("new-comment", (data) => {
   el.innerHTML = `<span class="user">@${data.user}</span><br>${data.text}`;
   box.prepend(el);
 
-  // 音声読み上げ
-  const utter = new SpeechSynthesisUtterance(data.text);
-  utter.lang = 'ja-JP';
-  utter.rate = 1.2;
-  utter.pitch = 1.0;
-  synth.speak(utter);
+  if (voiceEnabled) {
+    const utter = new SpeechSynthesisUtterance(data.text);
+    utter.lang = 'ja-JP';
+    utter.rate = 1.2; // 読み上げ速度
+    utter.pitch = 1.0;
+    synth.speak(utter);
+  }
 });
 
 socket.on("live-status", (msg) => {
   document.getElementById("status-label").innerText = msg;
 });
 
-socket.on("connect_error", (err) => {
-  console.log("Connection Error:", err);
+socket.on("connect_error", () => {
   document.getElementById("status-label").innerText = "⚠️ サーバー再接続中...";
 });
 </script>
