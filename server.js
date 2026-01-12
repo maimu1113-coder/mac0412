@@ -6,7 +6,12 @@ const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" }, transports: ["polling", "websocket"] });
+// Render対策：ポーリングとWebSocketの両方を許可し、タイムアウトを長めに設定
+const io = new Server(server, { 
+    cors: { origin: "*" }, 
+    transports: ["polling", "websocket"],
+    pingTimeout: 60000
+});
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -16,36 +21,51 @@ io.on("connection", (socket) => {
     socket.on("connect-live", (tiktokId) => {
         if (tiktokLive) tiktokLive.disconnect();
 
-        // 接続の信頼性を高める設定
+        console.log(`接続試行中: ${tiktokId}`);
+
+        // 【最新版】ブラウザ偽装を強化した接続設定
         tiktokLive = new WebcastPushConnection(tiktokId, {
             processInitialData: false,
-            fetchOptions: {
+            enableExtendedGiftInfo: true,
+            requestOptions: {
+                timeout: 5000,
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 }
+            },
+            // モバイルアプリとして振る舞うためのパラメータ
+            clientParams: {
+                app_language: "ja-JP",
+                device_platform: "web_pc"
             }
         });
 
-        const connectToLive = () => {
-            tiktokLive.connect().then(state => {
-                socket.emit("live-status", "🟢 接続成功！コメント取得中...");
-            }).catch(err => {
-                socket.emit("live-status", "❌ 接続失敗。再試行中...");
-                setTimeout(connectToLive, 5000); // 5秒後に自動リトライ
-            });
-        };
-
-        connectToLive();
-
-        // コメント受信
-        tiktokLive.on("chat", (data) => {
-            socket.emit("new-comment", { user: data.uniqueId, text: data.comment });
+        // 接続成功時
+        tiktokLive.connect().then(state => {
+            console.log(`Connected to Room ID: ${state.roomId}`);
+            socket.emit("live-status", "🟢 接続成功！データ受信待機中...");
+        }).catch(err => {
+            console.error("Connection Failed:", err);
+            socket.emit("live-status", "❌ 接続失敗: " + (err.message || "不明なエラー"));
         });
 
-        // 接続切れ対策
+        // チャット受信（ここが動くかが勝負）
+        tiktokLive.on("chat", (data) => {
+            console.log(`New Comment: ${data.uniqueId} - ${data.comment}`); // サーバーログにも出す
+            socket.emit("new-comment", { 
+                user: data.uniqueId, 
+                text: data.comment 
+            });
+        });
+
+        // エラーハンドリング
+        tiktokLive.on("error", (err) => {
+            console.error("Stream Error:", err);
+        });
+
         tiktokLive.on("disconnected", () => {
-            socket.emit("live-status", "⚠️ 接続が切れました。再接続します...");
-            setTimeout(connectToLive, 3000);
+            console.log("Disconnected");
+            socket.emit("live-status", "⚠️ 接続が切れました");
         });
     });
 
@@ -54,4 +74,5 @@ io.on("connection", (socket) => {
     });
 });
 
-server.listen(process.env.PORT || 10000);
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => console.log(`SERVER RUNNING ON PORT ${PORT}`));
