@@ -7,11 +7,7 @@ const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*" },
-  transports: ["polling", "websocket"]
-});
-
+const io = new Server(server, { cors: { origin: "*" }, transports: ["polling", "websocket"] });
 const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
@@ -20,42 +16,20 @@ app.use(express.static(path.join(__dirname, "public")));
 app.get("/api/tiktok/:id", async (req, res) => {
   try {
     const response = await axios.get(`https://www.tikwm.com/api/user/info?unique_id=${req.params.id}`);
-    if (response.data && response.data.data) {
-      res.json(response.data.data);
-    } else {
-      res.status(404).json({ error: "ユーザーが見つかりません" });
-    }
-  } catch (error) {
-    res.status(500).json({ error: "データ取得失敗" });
-  }
+    if (response.data && response.data.data) { res.json(response.data.data); }
+    else { res.status(404).json({ error: "NotFound" }); }
+  } catch (e) { res.status(500).json({ error: "Error" }); }
 });
 
 io.on("connection", (socket) => {
   let tiktokLive;
-  socket.on("connect-live", (tiktokId) => {
+  socket.on("connect-live", (id) => {
     if (tiktokLive) tiktokLive.disconnect();
-    tiktokLive = new WebcastPushConnection(tiktokId);
-    tiktokLive.connect().then(state => {
-      socket.emit("live-status", "🟢 ライブ接続完了！");
-    }).catch(err => {
-      socket.emit("live-status", "❌ ライブがオフラインです");
-    });
-    tiktokLive.on("chat", (data) => {
-      socket.emit("new-comment", { user: data.uniqueId, text: data.comment });
-    });
-    tiktokLive.on("disconnected", () => {
-      socket.emit("live-status", "⚪️ 接続終了");
-    });
-  });
-  socket.on("disconnect", () => {
-    if (tiktokLive) tiktokLive.disconnect();
+    tiktokLive = new WebcastPushConnection(id);
+    tiktokLive.connect().then(() => socket.emit("live-status", "🟢 LIVE接続完了！")).catch(() => socket.emit("live-status", "❌ オフライン"));
+    tiktokLive.on("chat", (data) => socket.emit("new-comment", { user: data.uniqueId, text: data.comment }));
   });
 });
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-server.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+server.listen(PORT);
