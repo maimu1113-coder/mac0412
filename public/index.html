@@ -3,87 +3,101 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MacTok Engine PRO</title>
+<title>MacTok Engine PRO + LIVE</title>
+<script src="/socket.io/socket.io.js"></script>
 <style>
-  body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .card { background: #111; border-radius: 20px; padding: 30px; width: 90%; max-width: 360px; text-align: center; box-shadow: 0 0 30px rgba(255,0,80,0.4); }
-  .title { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
-  .subtitle { font-size: 14px; color: #888; margin-bottom: 25px; }
-  input { width: 100%; padding: 15px; margin-bottom: 20px; border-radius: 12px; border: 1px solid #333; background: #1a1a1a; color: #fff; font-size: 16px; text-align: center; box-sizing: border-box; }
+  body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow-x: hidden; }
+  .card { background: #111; border-radius: 20px; padding: 25px; width: 90%; max-width: 380px; text-align: center; box-shadow: 0 0 30px rgba(255,0,80,0.4); margin: 20px 0; }
+  .title { font-size: 26px; font-weight: bold; margin-bottom: 20px; }
+  input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #333; background: #1a1a1a; color: #fff; font-size: 16px; text-align: center; box-sizing: border-box; }
   button { width: 100%; padding: 15px; border-radius: 30px; border: none; background: #ff0050; color: #fff; font-size: 18px; font-weight: bold; cursor: pointer; }
-  #result-area { margin-top: 20px; padding: 15px; background: #222; border-radius: 12px; display: none; text-align: left; }
-  .avatar { width: 60px; height: 60px; border-radius: 50%; border: 2px solid #ff0050; display: block; margin: 0 auto 10px; }
-  .user-name { text-align: center; font-weight: bold; margin-bottom: 10px; color: #ff0050; }
-  .stat-item { font-size: 14px; border-bottom: 1px solid #333; padding: 5px 0; display: flex; justify-content: space-between; }
-  #server-status { margin-top: 20px; font-size: 12px; color: #666; }
+  
+  /* プロフィールエリア */
+  #profile-area { margin-top: 20px; padding: 15px; background: #1a1a1a; border-radius: 12px; display: none; }
+  .avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #ff0050; }
+  
+  /* ライブコメントエリア */
+  #live-container { margin-top: 20px; display: none; }
+  #comment-box { height: 150px; overflow-y: auto; background: #050505; border-radius: 10px; padding: 10px; text-align: left; font-size: 13px; border: 1px solid #222; }
+  .comment { margin-bottom: 5px; animation: fadeIn 0.3s; }
+  .user { color: #ff0050; font-weight: bold; margin-right: 5px; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  #status-label { font-size: 12px; color: #666; margin-top: 15px; display: block; }
 </style>
 </head>
 <body>
 
 <div class="card">
   <div class="title">MacTok <span style="color:#ff0050;">PRO</span></div>
-  <div class="subtitle">Mobile Engine</div>
 
-  <input type="text" id="tiktok-id" placeholder="TikTok ID（例: macdonald）">
-  <button id="main-btn" onclick="fetchTikTokData()">準備完了</button>
+  <input type="text" id="tiktok-id" placeholder="TikTok IDを入力">
+  <button id="main-btn" onclick="runEngine()">エンジン始動</button>
 
-  <div id="result-area">
-    <img id="user-avatar" class="avatar" src="" alt="">
-    <div id="user-nickname" class="user-name"></div>
-    <div class="stat-item"><span>フォロワー</span><span id="stat-followers"></span></div>
-    <div class="stat-item"><span>いいね</span><span id="stat-hearts"></span></div>
-    <div class="stat-item"><span>動画数</span><span id="stat-videos"></span></div>
+  <div id="profile-area">
+    <img id="u-avatar" class="avatar" src="">
+    <div id="u-name" style="margin: 10px 0; font-weight: bold;"></div>
+    <div style="font-size: 12px; color: #aaa;">フォロワー: <span id="u-followers" style="color:#fff"></span></div>
   </div>
 
-  <div id="server-status">🔄 サーバー確認中...</div>
+  <div id="live-container">
+    <div style="font-size: 12px; color: #ff0050; margin-bottom: 5px; font-weight: bold;">LIVE COMMENT READER</div>
+    <div id="comment-box"></div>
+  </div>
+
+  <span id="status-label">Ready</span>
 </div>
 
 <script>
-async function fetchTikTokData() {
+const socket = io();
+const synth = window.speechSynthesis;
+
+async function runEngine() {
   const id = document.getElementById("tiktok-id").value.trim();
-  const btn = document.getElementById("main-btn");
-  const resultArea = document.getElementById("result-area");
-  const statusEl = document.getElementById("server-status");
+  const status = document.getElementById("status-label");
+  if (!id) return;
 
-  if (!id) { alert("IDを入力してください"); return; }
-
-  btn.disabled = true;
-  btn.innerText = "読み込み中...";
-  statusEl.innerText = "🔍 TikTokデータを検索中...";
+  status.innerText = "🔍 プロフィール取得中...";
 
   try {
+    // 1. プロフィール取得
     const res = await fetch(`/api/tiktok/${id}`);
     const data = await res.json();
 
-    if (data.error) {
-      alert("エラー: " + data.error);
-    } else {
-      // 画面にデータを反映
-      document.getElementById("user-avatar").src = data.user.avatarThumb;
-      document.getElementById("user-nickname").innerText = data.user.nickname;
-      document.getElementById("stat-followers").innerText = data.stats.followerCount.toLocaleString();
-      document.getElementById("stat-hearts").innerText = data.stats.heartCount.toLocaleString();
-      document.getElementById("stat-videos").innerText = data.stats.videoCount.toLocaleString();
+    if (!data.error) {
+      document.getElementById("u-avatar").src = data.user.avatarThumb;
+      document.getElementById("u-name").innerText = data.user.nickname;
+      document.getElementById("u-followers").innerText = data.stats.followerCount.toLocaleString();
+      document.getElementById("profile-area").style.display = "block";
       
-      resultArea.style.display = "block";
-      statusEl.innerText = "✅ データの読み込みに成功しました";
+      // 2. ライブ接続開始
+      status.innerText = "📡 ライブ接続を試行...";
+      document.getElementById("live-container").style.display = "block";
+      socket.emit("connect-live", id);
     }
   } catch (e) {
-    alert("サーバーとの通信に失敗しました");
-  } finally {
-    btn.disabled = false;
-    btn.innerText = "準備完了";
+    status.innerText = "❌ 接続失敗";
   }
 }
 
-async function checkStatus() {
-  const el = document.getElementById("server-status");
-  try {
-    const res = await fetch("/health");
-    if (res.ok) el.innerHTML = "🟢 Server : ONLINE";
-  } catch (e) { el.innerHTML = "🔴 Server : OFFLINE"; }
-}
-checkStatus();
+// リアルタイムコメント受信
+socket.on("new-comment", (data) => {
+  const box = document.getElementById("comment-box");
+  const el = document.createElement("div");
+  el.className = "comment";
+  el.innerHTML = `<span class="user">${data.user}:</span>${data.text}`;
+  box.prepend(el);
+
+  // 読み上げ実行
+  const utter = new SpeechSynthesisUtterance(data.text);
+  utter.lang = 'ja-JP';
+  utter.rate = 1.1;
+  synth.speak(utter);
+});
+
+socket.on("live-status", (msg) => {
+  document.getElementById("status-label").innerText = msg;
+});
 </script>
 
 </body>
