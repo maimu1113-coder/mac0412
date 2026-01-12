@@ -2,17 +2,19 @@ const express = require("express");
 const path = require("path");
 
 const app = express();
-const PORT = process.env.PORT || 10000; // Renderのデフォルトポートに対応
+// Renderのポート(10000)またはローカルの3000を使用
+const PORT = process.env.PORT || 10000;
 
 app.use(express.json());
 
-// publicフォルダ内の静的ファイル（CSSや画像など）を自動で読み込めるようにする
+// publicフォルダ内の静的ファイル(index.html等)を自動公開
 app.use(express.static(path.join(__dirname, "public")));
 
 // ------------------------------
-// トップページ（public/index.html を表示）
+// トップページ
 // ------------------------------
 app.get("/", (req, res) => {
+  // 確実にpublic/index.htmlを返す
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
@@ -27,6 +29,7 @@ app.get("/health", (req, res) => {
   });
 });
 
+// 404対策
 app.use((req, res) => {
   res.status(404).send("Not Found");
 });
