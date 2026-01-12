@@ -1,45 +1,22 @@
-// ==============================
-// server.js（Render用 完成版）
-// ==============================
-
 const express = require("express");
 const path = require("path");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// JSONを扱えるようにする
-app.use(express.json());
+// 静的ファイル（index.htmlと同じ階層）
+app.use(express.static(__dirname));
 
-// ------------------------------
-// トップページ（index.html）
-// ------------------------------
+// トップページ
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ------------------------------
-// サーバー起動状態チェック
-// ------------------------------
+// 生存確認
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    platform: "Render",
-    server: "Node.js",
-    time: new Date().toISOString()
-  });
+  res.send("OK");
 });
 
-// ------------------------------
-// 404対策
-// ------------------------------
-app.use((req, res) => {
-  res.status(404).send("Not Found");
-});
-
-// ------------------------------
-// サーバー起動
-// ------------------------------
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log("✅ Server running on port " + PORT);
 });
