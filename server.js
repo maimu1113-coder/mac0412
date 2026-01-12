@@ -1,50 +1,30 @@
-// ==============================
-// server.js（修正版）
-// ==============================
-
 const express = require("express");
 const path = require("path");
-
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000; // Renderのデフォルト10000に合わせる
 
-// JSONを扱えるようにする
 app.use(express.json());
 
-// 【重要】カレントディレクトリのファイルを静的ファイルとして公開する設定
-// これにより CSSやJSを分離しても読み込めるようになります
+// ファイルの存在場所をログに出力してデバッグする
+const indexPath = path.resolve(__dirname, "index.html");
+console.log("Checking index.html at:", indexPath);
+
+// 静的ファイルの提供設定
 app.use(express.static(__dirname));
 
-// ------------------------------
-// トップページ（index.html）
-// ------------------------------
 app.get("/", (req, res) => {
-  // パスを確実に結合する
-  res.sendFile(path.resolve(__dirname, "index.html"));
-});
-
-// ------------------------------
-// サーバー起動状態チェック
-// ------------------------------
-app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    platform: "Render",
-    server: "Node.js",
-    time: new Date().toISOString()
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error("File sending error:", err);
+      res.status(500).send("index.html が見つかりません。ファイル構成を確認してください。");
+    }
   });
 });
 
-// ------------------------------
-// 404対策
-// ------------------------------
-app.use((req, res) => {
-  res.status(404).send("Not Found");
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", time: new Date().toISOString() });
 });
 
-// ------------------------------
-// サーバー起動
-// ------------------------------
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
