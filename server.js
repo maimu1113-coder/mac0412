@@ -1,28 +1,34 @@
 const express = require("express");
 const path = require("path");
+
 const app = express();
-const PORT = process.env.PORT || 10000; // Renderのデフォルト10000に合わせる
+const PORT = process.env.PORT || 10000; // Renderのデフォルトポートに対応
 
 app.use(express.json());
 
-// ファイルの存在場所をログに出力してデバッグする
-const indexPath = path.resolve(__dirname, "index.html");
-console.log("Checking index.html at:", indexPath);
+// publicフォルダ内の静的ファイル（CSSや画像など）を自動で読み込めるようにする
+app.use(express.static(path.join(__dirname, "public")));
 
-// 静的ファイルの提供設定
-app.use(express.static(__dirname));
-
+// ------------------------------
+// トップページ（public/index.html を表示）
+// ------------------------------
 app.get("/", (req, res) => {
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      console.error("File sending error:", err);
-      res.status(500).send("index.html が見つかりません。ファイル構成を確認してください。");
-    }
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// ------------------------------
+// サーバー起動状態チェック
+// ------------------------------
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    platform: "Render",
+    time: new Date().toISOString()
   });
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", time: new Date().toISOString() });
+app.use((req, res) => {
+  res.status(404).send("Not Found");
 });
 
 app.listen(PORT, () => {
