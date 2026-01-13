@@ -3,42 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>TikTok Monitor Background OK</title>
+    <title>Mac Talk PRO</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --card: #1a1a1a; }
         body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
-        .header { padding-top: 50px; margin-bottom: 20px; }
-        .voice-btn { background: linear-gradient(45deg, var(--secondary), #ff4d88); color: white; border: none; padding: 18px; border-radius: 15px; font-weight: bold; width: 100%; margin-bottom: 15px; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(255, 0, 80, 0.4); }
+        
+        /* Mac Talk ロゴアニメーション */
+        .logo-container { text-align: center; padding-top: 40px; margin-bottom: 10px; }
+        .mactalk-logo { font-size: 2.2rem; font-weight: 900; letter-spacing: -1px; background: linear-gradient(90deg, #fff, var(--primary), #fff); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; }
+        @keyframes shine { to { background-position: 200% center; } }
+
+        .voice-btn { background: #222; color: #888; border: 1px solid #444; padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; font-size: 0.9rem; }
+        .voice-btn.active { background: linear-gradient(45deg, var(--secondary), #ff4d88); color: white; border: none; box-shadow: 0 0 15px rgba(255, 0, 80, 0.4); }
+
         .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; background: var(--card); border: 2px solid #333; padding: 15px; border-radius: 12px; color: white; font-size: 1rem; }
-        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 12px; font-weight: bold; color: #000; }
-        .stats-panel { background: #161616; border-radius: 18px; padding: 18px; display: flex; align-items: center; gap: 15px; border: 1px solid #333; margin-bottom: 20px; }
-        #avatar { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--primary); }
+        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 15px; border-radius: 12px; color: white; font-size: 1rem; outline: none; }
+        .connect-btn { background: var(--primary); border: none; padding: 0 20px; border-radius: 12px; font-weight: bold; color: #000; }
+
+        /* ステータスパネル改善 */
+        .stats-panel { background: #161616; border-radius: 18px; padding: 18px; display: flex; align-items: center; gap: 15px; border: 1px solid #333; margin-bottom: 20px; min-height: 80px; }
+        #avatar { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--primary); background: #333; display: block; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; flex: 1; text-align: center; }
+        .stat-label { font-size: 0.6rem; color: #888; display: block; }
+        .stat-val { color: var(--primary); font-weight: bold; font-size: 1rem; }
+
         #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 12px; }
         .chat-card { background: var(--card); padding: 15px; border-radius: 15px; border-left: 5px solid var(--primary); }
     </style>
 </head>
 <body>
-    <audio id="bgTracker" loop playsinline>
-        <source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3">
-    </audio>
+    <audio id="bgTracker" loop playsinline><source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3"></audio>
 
-    <div class="header">
-        <button id="voiceInit" class="voice-btn">【 🔊 読み上げを有効にする 】</button>
-        <div class="input-group">
-            <input id="userId" placeholder="TikTok IDを入力">
-            <button class="connect-btn" onclick="connect()">接続</button>
-        </div>
+    <div class="logo-container">
+        <div class="mactalk-logo">Mac Talk</div>
+        <button id="voiceInit" class="voice-btn">🔊 読み上げを有効にする</button>
+    </div>
+
+    <div class="input-group">
+        <input id="userId" placeholder="TikTok ID">
+        <button class="connect-btn" onclick="connect()">接続</button>
     </div>
 
     <div id="statsPanel" class="stats-panel">
         <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
         <div style="flex:1">
-            <div id="hostName" style="font-size:1.1rem; font-weight:bold; margin-bottom:6px;">未接続</div>
-            <div id="statusText" style="color:var(--primary); font-size:0.9rem;">IDを入れて接続してください</div>
+            <div id="hostName" style="font-size:1rem; font-weight:bold; margin-bottom:5px; color:#fff;">未接続</div>
+            <div class="stats-grid">
+                <div><span class="stat-label">フォロワー</span><span id="followers" class="stat-val">0</span></div>
+                <div><span class="stat-label">現在</span><span id="currentView" class="stat-val">0</span></div>
+                <div><span class="stat-label">最高</span><span id="maxView" class="stat-val">0</span></div>
+            </div>
         </div>
     </div>
+
     <div id="chats"></div>
 
     <script>
@@ -46,8 +64,8 @@
         let voiceEnabled = false;
         let speechQueue = [];
         let isSpeaking = false;
+        let maxCount = 0;
 
-        // 名前とコメントを綺麗にする（日本語・英数字以外を完全に消去）
         const cleanAll = (text) => {
             if(!text) return "";
             return text.replace(/[^\u3041-\u3096\u30A1-\u30F6\u4E00-\u9FFF\uFF66-\uFF9F\u0030-\u0039\u0041-\u005A\u0061-\u007A]/g, '').trim();
@@ -56,53 +74,56 @@
         document.getElementById('voiceInit').addEventListener('click', function() {
             voiceEnabled = true;
             window.speechSynthesis.cancel();
-
-            // 無音オーディオを再生（これで裏側でも止まらなくなります）
-            const audio = document.getElementById('bgTracker');
-            audio.play().catch(e => console.log("Audio logic started"));
-
-            speak("バックグラウンドモードを有効にしました。");
-            this.innerText = "🔊 稼働中";
-            this.style.background = "#333";
+            document.getElementById('bgTracker').play().catch(e => {});
+            this.classList.add('active');
+            this.innerText = "⚡ MONITOR ACTIVE";
+            speak("マックトーク、起動しました。");
         });
 
         function connect() {
             const id = document.getElementById('userId').value;
             if(!id) return;
+            maxCount = 0;
             speechQueue = [];
             window.speechSynthesis.cancel();
-            speak(`${id} への接続を開始します。`);
+            speak(`${id} へ接続中。`);
             socket.emit('setTargetUser', id);
         }
 
         socket.on('roomInfo', (data) => {
-            document.getElementById('avatar').src = data.avatar;
+            if(data.avatar) document.getElementById('avatar').src = data.avatar;
             document.getElementById('hostName').innerText = data.nickname;
-            document.getElementById('statusText').innerText = `現在 ${data.viewerCount} 人が視聴中`;
-            speak(`${cleanAll(data.nickname)} に接続しました。`);
+            document.getElementById('followers').innerText = data.followerCount.toLocaleString();
+            document.getElementById('currentView').innerText = data.viewerCount.toLocaleString();
+            speak(`${cleanAll(data.nickname)} さんに接続完了。`);
+        });
+
+        socket.on('viewerUpdate', (data) => {
+            document.getElementById('currentView').innerText = data.viewerCount.toLocaleString();
+            if(data.viewerCount > maxCount) {
+                maxCount = data.viewerCount;
+                document.getElementById('maxView').innerText = maxCount.toLocaleString();
+            }
         });
 
         socket.on('chat', (data) => {
             const card = document.createElement('div');
             card.className = 'chat-card';
-            card.innerHTML = `<span style="color:var(--primary); font-size:0.85rem; font-weight:bold;">@${data.nickname}</span><br>${data.comment}`;
+            card.innerHTML = `<span style="color:var(--primary); font-size:0.8rem;">@${data.nickname}</span><br>${data.comment}`;
             document.getElementById('chats').prepend(card);
-            
             if(voiceEnabled) {
-                const name = cleanAll(data.nickname);
-                const msg = cleanAll(data.comment);
-                if(msg) speak(`${name}さん、${msg}`);
+                const n = cleanAll(data.nickname);
+                const m = cleanAll(data.comment);
+                if(m) speak(`${n}さん、${m}`);
             }
         });
 
         socket.on('gift', (data) => {
             const card = document.createElement('div');
-            card.className = 'chat-card';
-            card.style.borderLeftColor = 'var(--secondary)';
-            card.innerHTML = `<span style="color:var(--secondary); font-weight:bold;">🎁 @${data.nickname}</span><br>${data.giftName}！`;
+            card.className = 'chat-card'; card.style.borderLeftColor = 'var(--secondary)';
+            card.innerHTML = `<span style="color:var(--secondary)">🎁 @${data.nickname}</span><br>${data.giftName}！`;
             document.getElementById('chats').prepend(card);
-            
-            if(voiceEnabled) speak(`${cleanAll(data.nickname)}さん、ギフトありがとうございます！`);
+            if(voiceEnabled) speak(`${cleanAll(data.nickname)}さん、ギフト感謝です！`);
         });
 
         function speak(t) {
