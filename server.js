@@ -12,50 +12,43 @@ const PORT = process.env.PORT || 10000;
 app.use(express.static(path.join(__dirname, "public")));
 
 let tiktokConnection = null;
-const CHAT_LIMIT_MS = 2000; // 同一ユーザー連投制限（2秒）
-const userChatMap = new Map();
 
 io.on("connection", (socket) => {
+    console.log("🟢 iPhone Connected");
+
     socket.on("setTargetUser", (uniqueId) => {
         if (tiktokConnection) tiktokConnection.disconnect();
-        tiktokConnection = new WebcastPushConnection(uniqueId);
+        
+        // 成功率を極限まで高める接続オプション
+        tiktokConnection = new WebcastPushConnection(uniqueId, {
+            processInitialData: false,
+            enableExtendedGiftInfo: true,
+            requestPollingIntervalMs: 2000
+        });
 
         tiktokConnection.connect().then(state => {
-            socket.emit("roomInfo", {
+            io.emit("roomInfo", {
                 nickname: state.roomInfo.owner.nickname,
                 avatar: state.roomInfo.owner.avatar_thumb.url_list[0]
             });
-        }).catch(err => console.error("Connect Error", err));
-
-        // 【チャット & コマンド】
-        tiktokConnection.on('chat', data => {
-            const now = Date.now();
-            const lastTime = userChatMap.get(data.userId) || 0;
-            if (now - lastTime < CHAT_LIMIT_MS) return; // 連投防止
-            userChatMap.set(data.userId, now);
-
-            // サーバー側でコマンド判定
-            let isCommand = false;
-            if (data.comment.startsWith("!")) isCommand = true;
-
-            io.emit("chat", {
-                nickname: data.nickname,
-                comment: data.comment,
-                isCommand: isCommand
-            });
+        }).catch(err => {
+            console.error("TikTok Connect Error", err);
+            socket.emit("chat", { nickname: "System", comment: "TikTok接続失敗。ライブ中か確認してください。" });
         });
 
-        // 【ギフト検知】
+        // 切断検知の可視化
+        tiktokConnection.on('disconnected', () => {
+            io.emit("chat", { nickname: "System", comment: "⚠️ TikTokとの接続が切れました。再接続してください。" });
+        });
+
+        tiktokConnection.on('chat', data => {
+            io.emit("chat", { nickname: data.nickname, comment: data.comment });
+        });
+
         tiktokConnection.on('gift', data => {
-            // ギフトが飛んだら特別な信号を送る
-            io.emit("gift", {
-                nickname: data.nickname,
-                giftName: data.giftName,
-                repeatCount: data.repeatCount,
-                giftIcon: data.giftPictureUrl
-            });
+            io.emit("gift", { nickname: data.nickname, giftName: data.giftName, repeatCount: data.repeatCount });
         });
     });
 });
 
-server.listen(PORT, () => console.log(`✅ ULTIMATE Server Live`));
+server.listen(PORT, () => console.log(`✅ Server Live`));
