@@ -6,96 +6,86 @@
     <title>Mac Talk PRO ULTIMATE</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --card: #1a1a1a; --gift: #ffac33; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
-        .mactalk-logo { font-size: 2.5rem; font-weight: 900; text-align: center; background: linear-gradient(90deg, #fff, var(--primary), #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-top: 30px; }
-        .voice-btn { background: var(--secondary); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 10px; }
-        .voice-btn.active { background: #333; color: var(--primary); }
-        .input-group { display: flex; gap: 8px; margin-bottom: 10px; }
-        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 12px; border-radius: 10px; color: white; outline: none; }
-        .connect-btn { background: var(--primary); border: none; padding: 0 20px; border-radius: 10px; font-weight: bold; color: #000; }
-        #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 8px; }
-        .chat-card { background: var(--card); padding: 12px; border-radius: 12px; border-left: 5px solid var(--primary); animation: slideIn 0.3s ease; }
-        .gift-card { background: rgba(255, 172, 51, 0.1); border-left: 5px solid var(--gift); padding: 12px; border-radius: 12px; animation: giftPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes slideIn { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes giftPop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        :root { --primary: #00f2ea; --bg: #0d0d0d; --card: #1a1a1a; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; overflow-x: hidden; }
+        .mactalk-logo { font-size: 2.5rem; font-weight: 900; text-align: center; color: var(--primary); margin: 30px 0 20px; text-shadow: 0 0 10px var(--primary); }
+        .voice-btn { background: #ff0050; color: white; border: none; padding: 18px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(255,0,80,0.3); }
+        .voice-btn.active { background: #333; color: var(--primary); box-shadow: none; }
+        .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
+        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 15px; border-radius: 10px; color: white; outline: none; font-size: 1rem; }
+        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 10px; font-weight: bold; color: #000; }
+        .status-card { background: var(--card); padding: 15px; border-radius: 15px; display: flex; align-items: center; gap: 15px; margin-bottom: 20px; border: 1px solid #333; }
+        #avatar { width: 55px; height: 55px; border-radius: 50%; border: 2px solid var(--primary); background: #222; }
+        #chats { display: flex; flex-direction: column-reverse; gap: 12px; }
+        .chat-card { background: var(--card); padding: 15px; border-radius: 12px; border-left: 5px solid var(--primary); animation: slide 0.3s ease; }
+        @keyframes slide { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
     </style>
 </head>
 <body>
     <audio id="bgTracker" loop playsinline src="https://github.com/anars/blank-audio/raw/master/10-minutes-of-silence.mp3"></audio>
     <div class="mactalk-logo">Mac Talk</div>
-    <button id="voiceInit" class="voice-btn">⚡ モニター開始</button>
+    <button id="voiceInit" class="voice-btn">⚡ 読み上げを開始する</button>
     <div class="input-group">
-        <input id="userId" placeholder="TikTok ID">
+        <input id="userId" placeholder="TikTok ID (@なし)">
         <button class="connect-btn" onclick="connect()">接続</button>
+    </div>
+    <div class="status-card">
+        <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+        <div>
+            <div id="hostName" style="font-weight:bold; font-size: 1.1rem;">未接続</div>
+            <div id="statusText" style="font-size:0.85rem; color:#888;">IDを入力してください</div>
+        </div>
     </div>
     <div id="chats"></div>
 
     <script>
         const socket = io();
         let voiceEnabled = false, speechQueue = [], isSpeaking = false, audioCtx;
-        let isMuted = false;
 
         async function keepAlive() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') await audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            gain.gain.value = 0.0001;
-            osc.connect(gain); gain.connect(audioCtx.destination);
+            gain.gain.value = 0.0001; osc.connect(gain); gain.connect(audioCtx.destination);
             osc.start(); osc.stop(audioCtx.currentTime + 0.1);
         }
 
         document.getElementById('voiceInit').addEventListener('click', async function() {
-            voiceEnabled = true;
-            this.classList.add('active'); this.innerText = "⚡ システム稼働中 (マイク待機)";
-            await document.getElementById('bgTracker').play();
-            setInterval(keepAlive, 1000);
-            speak("オールシステム・オンライン。");
+            voiceEnabled = true; this.classList.add('active'); this.innerText = "⚡ 読み上げシステム稼働中";
+            try {
+                await document.getElementById('bgTracker').play();
+                setInterval(keepAlive, 1000);
+                speak("システムオンライン。準備が整いました。");
+            } catch(e) { alert("ボタンをもう一度押してください"); }
         });
 
         function connect() {
             const id = document.getElementById('userId').value;
             if(!id) return;
+            document.getElementById('statusText').innerText = "⏳ 接続を試みています...";
             socket.emit("setTargetUser", id);
         }
 
-        // コメント受信
-        socket.on('chat', data => {
-            // コマンド処理
-            if (data.isCommand) {
-                if (data.comment === "!stop") { isMuted = true; speak("読み上げを停止します"); return; }
-                if (data.comment === "!start") { isMuted = false; speak("読み上げを再開します"); return; }
-            }
-
-            const card = document.createElement('div');
-            card.className = 'chat-card';
-            card.innerHTML = `<b style="color:var(--primary)">@${data.nickname}</b><br>${data.comment}`;
-            document.getElementById('chats').prepend(card);
-            
-            if(voiceEnabled && !isMuted) {
-                const n = data.nickname.replace(/[^\u3041-\u3096\u30A1-\u30F6\u4E00-\u9FFF0-9A-Za-z]/g, '');
-                const m = data.comment.replace(/[^\u3041-\u3096\u30A1-\u30F6\u4E00-\u9FFF0-9A-Za-z]/g, '');
-                if(m) speak(`${n}、${m}`);
-            }
+        socket.on('roomInfo', data => {
+            document.getElementById('avatar').src = data.avatar;
+            document.getElementById('hostName').innerText = data.nickname;
+            document.getElementById('statusText').innerText = "✅ ライブ配信に接続中";
+            speak(data.nickname + "のライブに接続成功。読み上げを開始します。");
         });
 
-        // ギフト受信
-        socket.on('gift', data => {
+        socket.on('chat', data => {
             const card = document.createElement('div');
-            card.className = 'gift-card';
-            card.innerHTML = `<b style="color:var(--gift)">🎁 ${data.nickname}さん</b><br>${data.giftName} × ${data.repeatCount}`;
+            card.className = 'chat-card';
+            card.innerHTML = `<span style="color:var(--primary); font-size:0.8rem; font-weight:bold;">@${data.nickname}</span><br>${data.comment}`;
             document.getElementById('chats').prepend(card);
-            
-            if(voiceEnabled) {
-                speak(`${data.nickname}さん、${data.giftName}ありがとう！`);
-            }
+            if(voiceEnabled) speak(data.nickname + "さん、" + data.comment);
         });
 
         function speak(t) {
             if(!voiceEnabled) return;
             const u = new SpeechSynthesisUtterance(t);
-            u.lang = 'ja-JP'; u.rate = 1.3;
+            u.lang = 'ja-JP'; u.rate = 1.2;
             u.onend = () => { isSpeaking = false; process(); };
             speechQueue.push(u);
             if(!isSpeaking) process();
@@ -103,11 +93,10 @@
 
         function process() {
             if(speechQueue.length === 0) return;
-            isSpeaking = true;
-            window.speechSynthesis.speak(speechQueue.shift());
+            isSpeaking = true; window.speechSynthesis.speak(speechQueue.shift());
         }
 
-        document.body.addEventListener('click', () => { if(audioCtx) audioCtx.resume(); });
+        document.body.addEventListener('touchstart', () => { if(audioCtx) audioCtx.resume(); });
     </script>
 </body>
 </html>
