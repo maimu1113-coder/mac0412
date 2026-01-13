@@ -14,28 +14,27 @@ io.on('connection', (socket) => {
 
     socket.on('setTargetUser', (uniqueId) => {
         if (tiktokConnection) tiktokConnection.disconnect();
-        
         tiktokConnection = new WebcastPushConnection(uniqueId);
 
         tiktokConnection.connect().then(state => {
-            console.log(`Connected to ${state.roomId}`);
-        }).catch(err => {
-            console.error('Connection error', err);
+            // 接続時にルーム情報を送信
+            io.emit('roomInfo', {
+                roomInfo: state.roomInfo,
+                followerCount: state.roomInfo.owner.stats.follower_count
+            });
+        }).catch(err => console.error(err));
+
+        // 視聴者数の更新
+        tiktokConnection.on('roomUser', data => {
+            io.emit('viewerUpdate', { viewerCount: data.viewerCount });
         });
 
-        // 通常チャットの受信
         tiktokConnection.on('chat', data => {
             io.emit('chat', { nickname: data.nickname, comment: data.comment });
         });
 
-        // ★ギフト受信の仕組みを強化
         tiktokConnection.on('gift', data => {
-            // ギフトの名前と、送った人の名前をフロントに送る
-            io.emit('gift', { 
-                nickname: data.nickname, 
-                giftName: data.giftName,
-                repeatCount: data.repeatCount // 連続で送られた場合
-            });
+            io.emit('gift', { nickname: data.nickname, giftName: data.giftName });
         });
     });
 
@@ -45,6 +44,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
