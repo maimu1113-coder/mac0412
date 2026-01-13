@@ -11,9 +11,6 @@ app.use(express.static('public'));
 
 let tiktokConnection = null;
 let currentTargetUser = null;
-let reconnectTimer = null;
-const CHAT_LIMIT_MS = 3000; 
-const userChatMap = new Map();
 
 io.on('connection', (socket) => {
     socket.on('setTargetUser', (uniqueId) => {
@@ -35,29 +32,17 @@ function connectTikTok(socket) {
         socket.emit('roomInfo', {
             nickname: owner.nickname || currentTargetUser,
             avatar: owner.avatar_large?.url_list[0] || "",
-            followerCount: owner.stats?.follower_count || 0,
-            viewerCount: state.viewerCount || 0
+            followerCount: owner.stats?.follower_count || 0
         });
-    }).catch(err => scheduleReconnect(socket));
-
-    tiktokConnection.on('disconnected', () => scheduleReconnect(socket));
+    }).catch(err => {
+        console.error("TikTok Connect Error", err);
+        socket.emit('error', '接続に失敗しました。IDを確認してください。');
+    });
 
     tiktokConnection.on('chat', data => {
-        const now = Date.now();
-        const lastTime = userChatMap.get(data.userId) || 0;
-        if (now - lastTime < CHAT_LIMIT_MS) return;
-        userChatMap.set(data.userId, now);
         socket.emit('chat', { nickname: data.nickname, comment: data.comment });
     });
 }
 
-function scheduleReconnect(socket) {
-    if (reconnectTimer) return;
-    reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        connectTikTok(socket);
-    }, 5000); 
-}
-
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Server Online`));
+server.listen(PORT, () => console.log(`Stable Server Online`));
