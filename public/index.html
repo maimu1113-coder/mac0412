@@ -3,30 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>TikTok Monitor PRO+</title>
+    <title>TikTok Monitor Background Pro</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --card: #1a1a1a; }
         body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
-        
-        /* ボタン位置をかなり下げて、親指で押しやすく、画面上部からも離しました */
         .header { padding-top: 50px; margin-bottom: 20px; }
         .voice-btn { background: linear-gradient(45deg, var(--secondary), #ff4d88); color: white; border: none; padding: 18px; border-radius: 15px; font-weight: bold; width: 100%; margin-bottom: 15px; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(255, 0, 80, 0.4); }
         .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; background: var(--card); border: 2px solid #333; padding: 15px; border-radius: 12px; color: white; font-size: 1rem; outline: none; }
-        input:focus { border-color: var(--primary); }
-        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 12px; font-weight: bold; color: #000; cursor: pointer; }
-
+        input { flex: 1; background: var(--card); border: 2px solid #333; padding: 15px; border-radius: 12px; color: white; font-size: 1rem; }
+        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 12px; font-weight: bold; color: #000; }
         .stats-panel { background: #161616; border-radius: 18px; padding: 18px; display: flex; align-items: center; gap: 15px; border: 1px solid #333; margin-bottom: 20px; }
-        #avatar { width: 60px; height: 60px; border-radius: 50%; background: #333; border: 2px solid var(--primary); }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; }
-        .stat-val { color: var(--primary); font-weight: bold; font-size: 1.1rem; display: block; }
-
+        #avatar { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--primary); }
         #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 12px; }
-        .chat-card { background: var(--card); padding: 15px; border-radius: 15px; border-left: 5px solid var(--primary); box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+        .chat-card { background: var(--card); padding: 15px; border-radius: 15px; border-left: 5px solid var(--primary); }
     </style>
 </head>
 <body>
+    <audio id="silentAudio" loop><source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3"></audio>
+
     <div class="header">
         <button id="voiceInit" class="voice-btn">【 🔊 読み上げを有効にする 】</button>
         <div class="input-group">
@@ -39,13 +34,9 @@
         <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
         <div style="flex:1">
             <div id="hostName" style="font-size:1.1rem; font-weight:bold; margin-bottom:6px;">未接続</div>
-            <div class="stats-grid">
-                <div>フォロワー<span id="followers" class="stat-val">0</span></div>
-                <div>現在<span id="currentView" class="stat-val">0</span></div>
-            </div>
+            <div id="currentView" style="color:var(--primary); font-weight:bold;">現在 0 人</div>
         </div>
     </div>
-
     <div id="chats"></div>
 
     <script>
@@ -54,21 +45,22 @@
         let speechQueue = [];
         let isSpeaking = false;
 
-        // 【最強の除菌ルール】日本語・英語・数字以外は「名前」からも「コメント」からも消します
         const superClean = (text) => {
             if(!text) return "";
-            return text
-                .replace(/[^\u3041-\u3096\u30A1-\u30F6\u4E00-\u9FFF\uFF66-\uFF9F\u0030-\u0039\u0041-\u005A\u0061-\u007A\u3005\u3007\u303B]/g, '')
-                .trim();
+            return text.replace(/[^\u3041-\u3096\u30A1-\u30F6\u4E00-\u9FFF\uFF66-\uFF9F\u0030-\u0039\u0041-\u005A\u0061-\u007A]/g, '').trim();
         };
 
         document.getElementById('voiceInit').addEventListener('click', function() {
             voiceEnabled = true;
             window.speechSynthesis.cancel();
-            speak("読み上げ機能を有効にしました。アイディーを入力して接続してください。");
-            this.innerText = "🔊 稼働中";
+            
+            // ★裏技：ボタンを押した瞬間に「無音の音楽」を再生開始する
+            const silent = document.getElementById('silentAudio');
+            silent.play().catch(e => console.log("Audio play failed"));
+
+            speak("バックグラウンドモードを有効にしました。");
+            this.innerText = "🔊 稼働中（バックグラウンド可）";
             this.style.background = "#333";
-            this.style.boxShadow = "none";
         });
 
         function connect() {
@@ -76,21 +68,15 @@
             if(!id) return;
             speechQueue = [];
             window.speechSynthesis.cancel();
-            speak(`${id} への接続を開始します。`); // 接続開始を声でお知らせ
+            speak(`${id} への接続を開始します。`);
             socket.emit('setTargetUser', id);
         }
 
         socket.on('roomInfo', (data) => {
             document.getElementById('avatar').src = data.avatar;
             document.getElementById('hostName').innerText = data.nickname;
-            document.getElementById('followers').innerText = data.followerCount.toLocaleString();
-            
-            const cleanHost = superClean(data.nickname) || "ライブ";
-            speak(`${cleanHost} に接続しました。同席数は現在 ${data.viewerCount} 人です。`); // 接続成功を声でお知らせ
-        });
-
-        socket.on('viewerUpdate', (data) => {
-            document.getElementById('currentView').innerText = data.viewerCount.toLocaleString();
+            document.getElementById('currentView').innerText = `現在 ${data.viewerCount} 人`;
+            speak(`${superClean(data.nickname)} に接続しました。`);
         });
 
         socket.on('chat', (data) => {
@@ -98,39 +84,25 @@
             card.className = 'chat-card';
             card.innerHTML = `<span style="color:var(--primary); font-size:0.85rem; font-weight:bold;">@${data.nickname}</span><br>${data.comment}`;
             document.getElementById('chats').prepend(card);
-            
             if(voiceEnabled) {
-                let name = superClean(data.nickname);
                 let msg = superClean(data.comment);
-                if(msg) speak(`${name}さん、${msg}`);
+                if(msg) speak(`${superClean(data.nickname)}さん、${msg}`);
             }
-        });
-
-        socket.on('gift', (data) => {
-            const card = document.createElement('div');
-            card.className = 'chat-card';
-            card.style.borderLeftColor = 'var(--secondary)';
-            card.innerHTML = `<span style="color:var(--secondary); font-weight:bold;">🎁 @${data.nickname}</span><br>${data.giftName}！`;
-            document.getElementById('chats').prepend(card);
-            
-            let name = superClean(data.nickname);
-            speak(`${name}さん、ギフトありがとうございます！`);
         });
 
         function speak(t) {
             if(!voiceEnabled) return;
-            speechQueue.push(t);
+            const u = new SpeechSynthesisUtterance(t);
+            u.lang = 'ja-JP'; u.rate = 1.1;
+            u.onend = () => { isSpeaking = false; process(); };
+            speechQueue.push(u);
             if(!isSpeaking) process();
         }
 
         function process() {
-            if(speechQueue.length === 0) { isSpeaking = false; return; }
+            if(speechQueue.length === 0) return;
             isSpeaking = true;
-            const u = new SpeechSynthesisUtterance(speechQueue.shift());
-            u.lang = 'ja-JP'; u.rate = 1.05;
-            u.onend = () => { setTimeout(process, 100); };
-            u.onerror = () => { isSpeaking = false; process(); };
-            window.speechSynthesis.speak(u);
+            window.speechSynthesis.speak(speechQueue.shift());
         }
     </script>
 </body>
