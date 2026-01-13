@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Live Monitor PRO+</title>
+    <title>TikTok Monitor Natural</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --surface: #1a1a1a; }
         body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: 15px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
-        .voice-btn { background: var(--secondary); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 15px; font-size: 1.1rem; box-shadow: 0 0 15px rgba(255, 0, 80, 0.4); }
+        .voice-btn { background: var(--secondary); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 15px; font-size: 1.1rem; }
         .controls { display: flex; gap: 8px; margin-bottom: 15px; }
-        input { flex-grow: 1; background: var(--surface); border: 1px solid #333; padding: 12px; border-radius: 8px; color: white; }
-        button.connect-btn { background: var(--primary); color: black; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        #chats { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 10px; }
+        input { flex: 1; background: var(--surface); border: 1px solid #333; padding: 12px; border-radius: 8px; color: white; }
+        button.connect-btn { background: var(--primary); color: black; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; }
+        #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 10px; }
         .chat-card { background: var(--surface); padding: 12px; border-radius: 10px; border-left: 4px solid var(--primary); }
         .gift-card { border-left: 4px solid var(--secondary); background: rgba(255, 0, 80, 0.2); border: 1px solid var(--secondary); }
         .nickname { color: var(--primary); font-weight: bold; font-size: 0.8rem; display: block; }
@@ -34,31 +34,25 @@
         let speechQueue = [];
         let isSpeaking = false;
 
-        // ギフト通知音（ピーン！）
         function playGiftSound() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.connect(gain); gain.connect(ctx.destination);
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(1200, ctx.currentTime);
-                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-                osc.start(); osc.stop(ctx.currentTime + 0.4);
-            } catch(e) { console.log("Sound error"); }
+                osc.frequency.setValueAtTime(1000, ctx.currentTime);
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start(); osc.stop(ctx.currentTime + 0.3);
+            } catch(e) { console.log("Sound Error"); }
         }
 
-        // 音声ボタン
         document.getElementById('voiceInit').addEventListener('click', function() {
             voiceEnabled = true;
             window.speechSynthesis.cancel();
-            const startMsg = new SpeechSynthesisUtterance("準備ができました。ライブIDを入れて接続してください。");
-            startMsg.lang = 'ja-JP';
-            window.speechSynthesis.speak(startMsg);
-            this.innerText = "🔊 全機能有効中";
+            this.innerText = "🔊 自然な読み上げモード中";
             this.style.background = "#333";
-            this.style.boxShadow = "none";
+            speak("読み上げを開始します。");
         });
 
         function speak(text) {
@@ -72,8 +66,14 @@
             isSpeaking = true;
             const uttr = new SpeechSynthesisUtterance(speechQueue.shift());
             uttr.lang = 'ja-JP';
-            uttr.rate = 1.2;
-            uttr.onend = () => { setTimeout(processQueue, 50); };
+            
+            // --- 自然な喋りのための設定 ---
+            uttr.rate = 1.05;  // 自然な速さ
+            uttr.pitch = 1.1; // 少し明るいトーン
+            uttr.volume = 1.0;
+            // ---------------------------
+
+            uttr.onend = () => { setTimeout(processQueue, 150); }; // コメントの間に少し余韻を作る
             uttr.onerror = () => { isSpeaking = false; processQueue(); };
             window.speechSynthesis.speak(uttr);
         }
@@ -87,7 +87,6 @@
             }
         }
 
-        // コメント受信
         socket.on('chat', (data) => {
             const chatBox = document.getElementById('chats');
             const card = document.createElement('div');
@@ -97,21 +96,18 @@
 
             let cleanMsg = data.comment.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
             if (cleanMsg.trim()) {
-                speak(`${data.nickname}さん。${cleanMsg}`);
+                // 「さん、」と繋げることで、自然な呼びかけになります
+                speak(`${data.nickname}さん、${cleanMsg}`);
             }
         });
 
-        // ギフト受信
         socket.on('gift', (data) => {
-            if (voiceEnabled) playGiftSound(); // 音を鳴らす
-
+            if (voiceEnabled) playGiftSound();
             const chatBox = document.getElementById('chats');
             const card = document.createElement('div');
             card.className = 'chat-card gift-card';
             card.innerHTML = `<span class="nickname" style="color:#ff0050">🎁 @${data.nickname}</span>${data.giftName}！`;
             chatBox.prepend(card);
-
-            // 通知音の後に喋る
             speak(`${data.nickname}さん、ギフトありがとうございます！`);
         });
     </script>
