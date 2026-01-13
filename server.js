@@ -21,11 +21,14 @@ io.on('connection', (socket) => {
         tiktokConnection = new WebcastPushConnection(uniqueId);
 
         tiktokConnection.connect().then(state => {
-            const owner = state.roomInfo.owner;
-            // フォロワー数とアイコンの取得パスを多重化して精度向上
-            const followers = owner.stats?.follower_count || state.roomInfo.anchor_show_info?.follower_count || 0;
-            const avatarUrl = owner.avatar_large?.url_list[0] || owner.avatar_thumb?.url_list[0];
+            const room = state.roomInfo;
+            const owner = room.owner;
             
+            // アイコンURLの取得を強化
+            const avatarUrl = owner.avatar_large?.url_list[0] || owner.avatar_thumb?.url_list[0] || "";
+            // フォロワー数の取得を多重化
+            const followers = owner.stats?.follower_count || room.anchor_show_info?.follower_count || 0;
+
             socket.emit('roomInfo', {
                 nickname: owner.nickname || uniqueId,
                 avatar: avatarUrl,
@@ -39,7 +42,6 @@ io.on('connection', (socket) => {
         });
 
         tiktokConnection.on('chat', data => {
-            // 重複防止のためmsgIdを含めて送信
             socket.emit('chat', { nickname: data.nickname, comment: data.comment, msgId: data.msgId });
         });
 
@@ -54,4 +56,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`[Mac Talk System] Online on port ${PORT}`));
+server.listen(PORT, () => console.log(`Mac Talk System Online`));
