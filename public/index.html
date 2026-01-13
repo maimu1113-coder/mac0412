@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Monitor Natural</title>
+    <title>TikTok Monitor Natural Pro</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --surface: #1a1a1a; }
@@ -34,6 +34,9 @@
         let speechQueue = [];
         let isSpeaking = false;
 
+        // 絵文字を消すための共通ルール
+        const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
+
         function playGiftSound() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -50,9 +53,9 @@
         document.getElementById('voiceInit').addEventListener('click', function() {
             voiceEnabled = true;
             window.speechSynthesis.cancel();
-            this.innerText = "🔊 自然な読み上げモード中";
+            this.innerText = "🔊 絵文字カットモード有効";
             this.style.background = "#333";
-            speak("読み上げを開始します。");
+            speak("準備が完了しました。");
         });
 
         function speak(text) {
@@ -66,14 +69,9 @@
             isSpeaking = true;
             const uttr = new SpeechSynthesisUtterance(speechQueue.shift());
             uttr.lang = 'ja-JP';
-            
-            // --- 自然な喋りのための設定 ---
-            uttr.rate = 1.05;  // 自然な速さ
-            uttr.pitch = 1.1; // 少し明るいトーン
-            uttr.volume = 1.0;
-            // ---------------------------
-
-            uttr.onend = () => { setTimeout(processQueue, 150); }; // コメントの間に少し余韻を作る
+            uttr.rate = 1.05;
+            uttr.pitch = 1.1;
+            uttr.onend = () => { setTimeout(processQueue, 150); };
             uttr.onerror = () => { isSpeaking = false; processQueue(); };
             window.speechSynthesis.speak(uttr);
         }
@@ -94,10 +92,12 @@
             card.innerHTML = `<span class="nickname">@${data.nickname}</span>${data.comment}`;
             chatBox.prepend(card);
 
-            let cleanMsg = data.comment.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+            // 名前とコメントの両方から絵文字を消す
+            let cleanName = data.nickname.replace(emojiRegex, '');
+            let cleanMsg = data.comment.replace(emojiRegex, '');
+            
             if (cleanMsg.trim()) {
-                // 「さん、」と繋げることで、自然な呼びかけになります
-                speak(`${data.nickname}さん、${cleanMsg}`);
+                speak(`${cleanName}さん、${cleanMsg}`);
             }
         });
 
@@ -108,7 +108,9 @@
             card.className = 'chat-card gift-card';
             card.innerHTML = `<span class="nickname" style="color:#ff0050">🎁 @${data.nickname}</span>${data.giftName}！`;
             chatBox.prepend(card);
-            speak(`${data.nickname}さん、ギフトありがとうございます！`);
+
+            let cleanName = data.nickname.replace(emojiRegex, '');
+            speak(`${cleanName}さん、ギフトありがとうございます！`);
         });
     </script>
 </body>
