@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>TikTok Monitor Background Pro</title>
+    <title>TikTok Monitor Background OK</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --card: #1a1a1a; }
@@ -20,7 +20,9 @@
     </style>
 </head>
 <body>
-    <audio id="silentAudio" loop><source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3"></audio>
+    <audio id="bgTracker" loop playsinline>
+        <source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3">
+    </audio>
 
     <div class="header">
         <button id="voiceInit" class="voice-btn">【 🔊 読み上げを有効にする 】</button>
@@ -34,7 +36,7 @@
         <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
         <div style="flex:1">
             <div id="hostName" style="font-size:1.1rem; font-weight:bold; margin-bottom:6px;">未接続</div>
-            <div id="currentView" style="color:var(--primary); font-weight:bold;">現在 0 人</div>
+            <div id="statusText" style="color:var(--primary); font-size:0.9rem;">IDを入れて接続してください</div>
         </div>
     </div>
     <div id="chats"></div>
@@ -45,7 +47,8 @@
         let speechQueue = [];
         let isSpeaking = false;
 
-        const superClean = (text) => {
+        // 名前とコメントを綺麗にする（日本語・英数字以外を完全に消去）
+        const cleanAll = (text) => {
             if(!text) return "";
             return text.replace(/[^\u3041-\u3096\u30A1-\u30F6\u4E00-\u9FFF\uFF66-\uFF9F\u0030-\u0039\u0041-\u005A\u0061-\u007A]/g, '').trim();
         };
@@ -53,13 +56,13 @@
         document.getElementById('voiceInit').addEventListener('click', function() {
             voiceEnabled = true;
             window.speechSynthesis.cancel();
-            
-            // ★裏技：ボタンを押した瞬間に「無音の音楽」を再生開始する
-            const silent = document.getElementById('silentAudio');
-            silent.play().catch(e => console.log("Audio play failed"));
+
+            // 無音オーディオを再生（これで裏側でも止まらなくなります）
+            const audio = document.getElementById('bgTracker');
+            audio.play().catch(e => console.log("Audio logic started"));
 
             speak("バックグラウンドモードを有効にしました。");
-            this.innerText = "🔊 稼働中（バックグラウンド可）";
+            this.innerText = "🔊 稼働中";
             this.style.background = "#333";
         });
 
@@ -75,8 +78,8 @@
         socket.on('roomInfo', (data) => {
             document.getElementById('avatar').src = data.avatar;
             document.getElementById('hostName').innerText = data.nickname;
-            document.getElementById('currentView').innerText = `現在 ${data.viewerCount} 人`;
-            speak(`${superClean(data.nickname)} に接続しました。`);
+            document.getElementById('statusText').innerText = `現在 ${data.viewerCount} 人が視聴中`;
+            speak(`${cleanAll(data.nickname)} に接続しました。`);
         });
 
         socket.on('chat', (data) => {
@@ -84,25 +87,37 @@
             card.className = 'chat-card';
             card.innerHTML = `<span style="color:var(--primary); font-size:0.85rem; font-weight:bold;">@${data.nickname}</span><br>${data.comment}`;
             document.getElementById('chats').prepend(card);
+            
             if(voiceEnabled) {
-                let msg = superClean(data.comment);
-                if(msg) speak(`${superClean(data.nickname)}さん、${msg}`);
+                const name = cleanAll(data.nickname);
+                const msg = cleanAll(data.comment);
+                if(msg) speak(`${name}さん、${msg}`);
             }
+        });
+
+        socket.on('gift', (data) => {
+            const card = document.createElement('div');
+            card.className = 'chat-card';
+            card.style.borderLeftColor = 'var(--secondary)';
+            card.innerHTML = `<span style="color:var(--secondary); font-weight:bold;">🎁 @${data.nickname}</span><br>${data.giftName}！`;
+            document.getElementById('chats').prepend(card);
+            
+            if(voiceEnabled) speak(`${cleanAll(data.nickname)}さん、ギフトありがとうございます！`);
         });
 
         function speak(t) {
             if(!voiceEnabled) return;
-            const u = new SpeechSynthesisUtterance(t);
-            u.lang = 'ja-JP'; u.rate = 1.1;
-            u.onend = () => { isSpeaking = false; process(); };
-            speechQueue.push(u);
+            speechQueue.push(t);
             if(!isSpeaking) process();
         }
 
         function process() {
-            if(speechQueue.length === 0) return;
+            if(speechQueue.length === 0) { isSpeaking = false; return; }
             isSpeaking = true;
-            window.speechSynthesis.speak(speechQueue.shift());
+            const u = new SpeechSynthesisUtterance(speechQueue.shift());
+            u.lang = 'ja-JP'; u.rate = 1.1;
+            u.onend = () => { setTimeout(process, 50); };
+            window.speechSynthesis.speak(u);
         }
     </script>
 </body>
