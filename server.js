@@ -14,15 +14,28 @@ io.on('connection', (socket) => {
 
     socket.on('setTargetUser', (uniqueId) => {
         if (tiktokConnection) tiktokConnection.disconnect();
+        
         tiktokConnection = new WebcastPushConnection(uniqueId);
+
         tiktokConnection.connect().then(state => {
             console.log(`Connected to ${state.roomId}`);
         }).catch(err => {
-            console.error('Failed to connect', err);
+            console.error('Connection error', err);
         });
 
+        // 通常チャットの受信
         tiktokConnection.on('chat', data => {
             io.emit('chat', { nickname: data.nickname, comment: data.comment });
+        });
+
+        // ★ギフト受信の仕組みを強化
+        tiktokConnection.on('gift', data => {
+            // ギフトの名前と、送った人の名前をフロントに送る
+            io.emit('gift', { 
+                nickname: data.nickname, 
+                giftName: data.giftName,
+                repeatCount: data.repeatCount // 連続で送られた場合
+            });
         });
     });
 
