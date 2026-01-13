@@ -1,48 +1,61 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+const express = require("express");
+const http = require("http");
+const path = require("path");
+const { Server } = require("socket.io");
 const { WebcastPushConnection } = require('tiktok-live-connector');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static('public'));
+const PORT = process.env.PORT || 10000;
+app.use(express.static(path.join(__dirname, "public")));
 
 let tiktokConnection = null;
-let currentTargetUser = null;
+const CHAT_LIMIT_MS = 2000; // 同一ユーザー連投制限（2秒）
+const userChatMap = new Map();
 
-io.on('connection', (socket) => {
-    socket.on('setTargetUser', (uniqueId) => {
-        currentTargetUser = uniqueId;
-        if (tiktokConnection) {
-            tiktokConnection.disconnect();
-            tiktokConnection = null;
-        }
-        connectTikTok(socket);
+io.on("connection", (socket) => {
+    socket.on("setTargetUser", (uniqueId) => {
+        if (tiktokConnection) tiktokConnection.disconnect();
+        tiktokConnection = new WebcastPushConnection(uniqueId);
+
+        tiktokConnection.connect().then(state => {
+            socket.emit("roomInfo", {
+                nickname: state.roomInfo.owner.nickname,
+                avatar: state.roomInfo.owner.avatar_thumb.url_list[0]
+            });
+        }).catch(err => console.error("Connect Error", err));
+
+        // 【チャット & コマンド】
+        tiktokConnection.on('chat', data => {
+            const now = Date.now();
+            const lastTime = userChatMap.get(data.userId) || 0;
+            if (now - lastTime < CHAT_LIMIT_MS) return; // 連投防止
+            userChatMap.set(data.userId, now);
+
+            // サーバー側でコマンド判定
+            let isCommand = false;
+            if (data.comment.startsWith("!")) isCommand = true;
+
+            io.emit("chat", {
+                nickname: data.nickname,
+                comment: data.comment,
+                isCommand: isCommand
+            });
+        });
+
+        // 【ギフト検知】
+        tiktokConnection.on('gift', data => {
+            // ギフトが飛んだら特別な信号を送る
+            io.emit("gift", {
+                nickname: data.nickname,
+                giftName: data.giftName,
+                repeatCount: data.repeatCount,
+                giftIcon: data.giftPictureUrl
+            });
+        });
     });
 });
 
-function connectTikTok(socket) {
-    if (!currentTargetUser) return;
-    tiktokConnection = new WebcastPushConnection(currentTargetUser);
-
-    tiktokConnection.connect().then(state => {
-        const owner = state.roomInfo.owner;
-        socket.emit('roomInfo', {
-            nickname: owner.nickname || currentTargetUser,
-            avatar: owner.avatar_large?.url_list[0] || "",
-            followerCount: owner.stats?.follower_count || 0
-        });
-    }).catch(err => {
-        console.error("TikTok Connect Error", err);
-        socket.emit('error', '接続に失敗しました。IDを確認してください。');
-    });
-
-    tiktokConnection.on('chat', data => {
-        socket.emit('chat', { nickname: data.nickname, comment: data.comment });
-    });
-}
-
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Stable Server Online`));
+server.listen(PORT, () => console.log(`✅ ULTIMATE Server Live`));
