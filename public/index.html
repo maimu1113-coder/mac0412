@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Mac Talk Ultimate</title>
+    <title>Mac Talk PRO</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --card: #1a1a1a; }
@@ -14,7 +14,7 @@
         .voice-btn { background: #ff0050; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; box-shadow: 0 0 15px rgba(255, 0, 80, 0.4); }
         .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
         input { flex: 1; background: var(--card); border: 1px solid #333; padding: 15px; border-radius: 12px; color: white; outline: none; }
-        .connect-btn { background: var(--primary); border: none; padding: 0 20px; border-radius: 12px; font-weight: bold; color: #000; }
+        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 12px; font-weight: bold; color: #000; }
         .stats-panel { background: #161616; border-radius: 18px; padding: 18px; display: flex; align-items: center; gap: 15px; border: 1px solid #333; margin-bottom: 15px; }
         #avatar { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--primary); background: #333; }
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; flex: 1; text-align: center; }
@@ -25,13 +25,17 @@
     </style>
 </head>
 <body>
-    <audio id="bgTracker" loop playsinline><source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3"></audio>
+    <audio id="bgTracker" loop playsinline>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mp3">
+    </audio>
+
     <div class="logo-container"><div class="mactalk-logo">Mac Talk</div></div>
     <button id="voiceInit" class="voice-btn">⚡ MONITOR ACTIVE</button>
     <div class="input-group">
         <input id="userId" placeholder="TikTok ID">
         <button class="connect-btn" onclick="connect()">接続</button>
     </div>
+
     <div class="stats-panel">
         <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
         <div style="flex:1">
@@ -47,23 +51,40 @@
 
     <script>
         const socket = io();
-        let voiceEnabled = false, isSpeaking = false, speechQueue = [], maxViewers = 0;
-        let processedMsgIds = new Set(); // 二重表示を防ぐためのIDリスト
+        let voiceEnabled = false, speechQueue = [], isSpeaking = false, maxViewers = 0;
+        let processedMsgIds = new Set();
 
         const clean = (t) => t ? t.replace(/[^\u3041-\u3096\u30A1-\u30F6\u4E00-\u9FFF\uFF66-\uFF9F\u0030-\u0039\u0041-\u005A\u0061-\u007A]/g, '').trim() : "";
+
+        // バックグラウンド維持用の設定
+        function enableBackgroundMode() {
+            const audio = document.getElementById('bgTracker');
+            audio.volume = 0.01; // 最小音量で再生
+            audio.play();
+            
+            // iPhoneのロック画面に「Mac Talk Active」と表示させる
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: 'Mac Talk PRO',
+                    artist: 'Monitoring...',
+                    album: 'Background Active'
+                });
+            }
+        }
 
         document.getElementById('voiceInit').addEventListener('click', function() {
             voiceEnabled = true;
             window.speechSynthesis.cancel();
-            document.getElementById('bgTracker').play();
-            speak("マックトーク、バックグラウンド稼働中。");
+            enableBackgroundMode();
+            speak("バックグラウンド稼働を開始。");
             this.style.background = "#333";
+            this.innerText = "⚡ BACKGROUND ON";
         });
 
         function connect() {
             const id = document.getElementById('userId').value;
             if(!id) return;
-            processedMsgIds.clear(); // ID履歴をリセット
+            processedMsgIds.clear();
             document.getElementById('chats').innerHTML = "";
             socket.emit('setTargetUser', id);
         }
@@ -73,7 +94,7 @@
             document.getElementById('hostName').innerText = data.nickname;
             document.getElementById('followers').innerText = data.followerCount.toLocaleString();
             document.getElementById('currentView').innerText = data.viewerCount.toLocaleString();
-            speak(`${clean(data.nickname)}さんに接続しました。`);
+            speak(`${clean(data.nickname)}に接続完了。`);
         });
 
         socket.on('viewerUpdate', (data) => {
@@ -85,7 +106,6 @@
         });
 
         socket.on('chat', (data) => {
-            // ★二重表示チェック
             if (processedMsgIds.has(data.msgId)) return;
             processedMsgIds.add(data.msgId);
             if (processedMsgIds.size > 100) processedMsgIds.delete(processedMsgIds.values().next().value);
@@ -99,14 +119,6 @@
                 const n = clean(data.nickname), m = clean(data.comment);
                 if(m) speak(`${n}さん、${m}`);
             }
-        });
-
-        socket.on('gift', (data) => {
-            const card = document.createElement('div');
-            card.className = 'chat-card'; card.style.borderLeftColor = 'var(--secondary)';
-            card.innerHTML = `<span style="color:var(--secondary)">🎁 @${data.nickname}</span><br>${data.giftName}！`;
-            document.getElementById('chats').prepend(card);
-            speak(`${clean(data.nickname)}さんギフト感謝！`);
         });
 
         function speak(t) {
