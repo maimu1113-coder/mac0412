@@ -21,24 +21,25 @@ io.on('connection', (socket) => {
         tiktokConnection = new WebcastPushConnection(uniqueId);
 
         tiktokConnection.connect().then(state => {
-            // アイコンURLが深い階層にある場合も考慮
             const owner = state.roomInfo.owner;
-            const avatarUrl = owner.avatar_large?.url_list[0] || owner.avatar_medium?.url_list[0] || owner.avatar_thumb?.url_list[0];
+            // フォロワー数とアイコンの取得パスを多重化して精度向上
+            const followers = owner.stats?.follower_count || state.roomInfo.anchor_show_info?.follower_count || 0;
+            const avatarUrl = owner.avatar_large?.url_list[0] || owner.avatar_thumb?.url_list[0];
             
             socket.emit('roomInfo', {
                 nickname: owner.nickname || uniqueId,
                 avatar: avatarUrl,
-                followerCount: owner.stats?.follower_count || 0,
+                followerCount: followers,
                 viewerCount: state.viewerCount || 0
             });
-        }).catch(err => console.error('Connect Error', err));
+        }).catch(err => console.error('TikTok Connect Error:', err));
 
         tiktokConnection.on('roomUser', data => {
             socket.emit('viewerUpdate', { viewerCount: data.viewerCount });
         });
 
-        // 二重送信を防ぐため、1つのコネクションにつき1回だけemit
         tiktokConnection.on('chat', data => {
+            // 重複防止のためmsgIdを含めて送信
             socket.emit('chat', { nickname: data.nickname, comment: data.comment, msgId: data.msgId });
         });
 
@@ -53,4 +54,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`System Online`));
+server.listen(PORT, () => console.log(`[Mac Talk System] Online on port ${PORT}`));
