@@ -3,18 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Mac Talk PRO - AI Hybrid</title>
+    <title>Mac Talk PRO ULTIMATE</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --card: #1a1a1a; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
-        .mactalk-logo { font-size: 2.8rem; font-weight: 900; text-align: center; background: linear-gradient(90deg, #fff, var(--primary), #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; margin-top: 40px; }
-        @keyframes shine { to { background-position: 200% center; } }
-        .voice-btn { background: var(--secondary); color: white; border: none; padding: 16px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; font-size: 1.1rem; }
-        .voice-btn.active { background: #333; color: #888; }
+        .mactalk-logo { font-size: 2.8rem; font-weight: 900; text-align: center; background: linear-gradient(90deg, #fff, var(--primary), #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-top: 40px; }
+        .voice-btn { background: var(--secondary); color: white; border: none; padding: 18px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; font-size: 1.2rem; box-shadow: 0 4px 15px rgba(255, 0, 80, 0.4); }
+        .voice-btn.active { background: #333; color: #00f2ea; box-shadow: none; }
         .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
-        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 15px; border-radius: 12px; color: white; outline: none; }
-        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 12px; font-weight: bold; color: #000; }
+        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 15px; border-radius: 12px; color: white; font-size: 1rem; outline: none; }
+        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 12px; font-weight: bold; }
         .stats-panel { background: #161616; border-radius: 18px; padding: 15px; display: flex; align-items: center; gap: 12px; border: 1px solid #333; margin-bottom: 15px; }
         #avatar { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; }
         #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 10px; padding-bottom: 20px; }
@@ -28,18 +27,18 @@
     <audio id="bgTracker" loop playsinline src="https://github.com/anars/blank-audio/raw/master/10-minutes-of-silence.mp3"></audio>
 
     <div class="mactalk-logo">Mac Talk</div>
-    <button id="voiceInit" class="voice-btn">⚡ AI HYBRID ACTIVE</button>
+    <button id="voiceInit" class="voice-btn">⚡ 読み上げを開始する</button>
+    
     <div class="input-group">
         <input id="userId" placeholder="TikTok ID">
         <button class="connect-btn" onclick="connect()">接続</button>
     </div>
+
     <div class="stats-panel">
         <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
         <div style="flex:1">
             <div id="hostName" style="font-weight:bold;">未接続</div>
-            <div style="font-size: 0.75rem; color: #777;">
-                フォロー: <span id="followers" style="color:var(--primary)">0</span> | 現在: <span id="currentView" style="color:var(--primary)">0</span>
-            </div>
+            <div id="statText" style="font-size: 0.75rem; color: #777;">接続待機中...</div>
         </div>
     </div>
     <div id="chats"></div>
@@ -47,40 +46,44 @@
     <script>
         const socket = io();
         let voiceEnabled = false, speechQueue = [], isSpeaking = false, audioCtx;
-        
-        // --- AI話題振り用設定 ---
-        let lastChatTime = Date.now();
-        let lastAiTalkTime = 0;
-        let aiTalking = false;
-        const SILENT_TRIGGER_MS = 60000; // 60秒無言で発動
-        const AI_COOLDOWN_MS = 180000;   // 1回喋ったら3分待機
-        const OPENAI_API_KEY = "YOUR_API_KEY"; // ここにキーを入力
 
-        // 自動再接続
-        socket.on('connect', () => {
-            const id = document.getElementById('userId').value;
-            if (id) socket.emit('setTargetUser', id);
-        });
-
+        // iPhoneの居座り強度を最大化する信号（0.5秒おき）
         async function keepAlive() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') await audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            gain.gain.value = 0.0001;
+            gain.gain.value = 0.00001; 
             osc.connect(gain); gain.connect(audioCtx.destination);
             osc.start(); osc.stop(audioCtx.currentTime + 0.1);
         }
 
         document.getElementById('voiceInit').addEventListener('click', async function() {
             voiceEnabled = true;
-            this.classList.add('active'); this.innerText = "⚡ AI MODE: ON";
+            this.classList.add('active'); this.innerText = "⚡ 読み上げ稼働中";
+            
             try {
+                // iPhoneの音ロックを解除
                 await document.getElementById('pipVideo').play();
                 await document.getElementById('bgTracker').play();
-                setInterval(keepAlive, 1000);
-            } catch (e) { console.error(e); }
-            speak("AIハイブリッドモード、起動しました。");
+                setInterval(keepAlive, 500); // 居座り信号
+                
+                // 10秒おきに「無音の読み上げ」を走らせてエンジンを止めない
+                setInterval(() => {
+                    if(!isSpeaking) {
+                        const d = new SpeechSynthesisUtterance(" ");
+                        d.volume = 0; window.speechSynthesis.speak(d);
+                    }
+                }, 10000);
+
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: 'Mac Talk PRO', artist: '稼働中',
+                        artwork: [{ src: 'https://cdn-icons-png.flaticon.com/512/3022/3022607.png', sizes: '512x512', type: 'image/png' }]
+                    });
+                }
+                speak("システム、準備完了。");
+            } catch (e) { alert("ボタンをもう一度押してください"); }
         });
 
         function connect() {
@@ -92,14 +95,11 @@
         socket.on('roomInfo', data => {
             if(data.avatar) document.getElementById('avatar').src = data.avatar;
             document.getElementById('hostName').innerText = data.nickname;
-            speak(data.nickname + "に接続。");
+            document.getElementById('statText').innerText = `フォロワー: ${data.followerCount.toLocaleString()}`;
+            speak(data.nickname + "に接続しました。");
         });
 
-        // コメント受信
-        socket.on('chat', (data) => {
-            lastChatTime = Date.now(); // 無言タイマーリセット
-            aiTalking = false;         // AIモード解除
-
+        socket.on('chat', data => {
             const card = document.createElement('div');
             card.className = 'chat-card';
             card.innerHTML = `<span style="color:var(--primary); font-size:0.8rem; font-weight:bold;">@${data.nickname}</span><br>${data.comment}`;
@@ -111,49 +111,6 @@
                 if(m) speak(n + "さん、" + m);
             }
         });
-
-        // AI話題振り監視ループ (5秒おきにチェック)
-        setInterval(async () => {
-            if (!voiceEnabled || isSpeaking || aiTalking) return;
-
-            const now = Date.now();
-            if (now - lastChatTime < SILENT_TRIGGER_MS) return;
-            if (now - lastAiTalkTime < AI_COOLDOWN_MS) return;
-
-            aiTalking = true;
-            lastAiTalkTime = now;
-
-            try {
-                const topic = await getAiTopic();
-                if (topic) speak("（AIアシスタント）" + topic);
-            } catch (e) {
-                console.error('AI Error:', e);
-                aiTalking = false;
-            }
-        }, 5000);
-
-        async function getAiTopic() {
-            if (OPENAI_API_KEY === "YOUR_API_KEY") return "APIキーが設定されていません。";
-            
-            const res = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENAI_API_KEY}`
-                },
-                body: JSON.stringify({
-                    model: 'gpt-4o-mini',
-                    messages: [
-                        { role: 'system', content: 'TikTok配信のアシスタントです。無言が続いているので、視聴者がコメントしたくなるような軽い質問や話題を1つ、15秒以内で話してください。' },
-                        { role: 'user', content: '何か面白い話題を振って。' }
-                    ],
-                    max_tokens: 80,
-                    temperature: 0.8
-                })
-            });
-            const data = await res.json();
-            return data.choices?.[0]?.message?.content || null;
-        }
 
         function speak(t) {
             if(!voiceEnabled) return;
@@ -169,6 +126,11 @@
             isSpeaking = true;
             window.speechSynthesis.speak(speechQueue.shift());
         }
+
+        // 画面をタップした時も音を復活させる
+        document.body.addEventListener('touchstart', () => {
+            if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        });
     </script>
 </body>
 </html>
