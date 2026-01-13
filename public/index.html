@@ -3,34 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Mac Talk PRO</title>
+    <title>Mac Talk PRO MAX</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --card: #1a1a1a; }
-        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
-        .logo-container { text-align: center; padding-top: 40px; margin-bottom: 10px; }
-        .mactalk-logo { font-size: 2.5rem; font-weight: 900; background: linear-gradient(90deg, #fff, var(--primary), #fff); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; }
+        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+        
+        /* Mac Talk ロゴをさらに強調 */
+        .logo-container { text-align: center; padding-top: 40px; margin-bottom: 5px; }
+        .mactalk-logo { font-size: 2.8rem; font-weight: 900; background: linear-gradient(90deg, #fff, var(--primary), #fff); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite; text-shadow: 0 0 20px rgba(0, 242, 234, 0.3); }
         @keyframes shine { to { background-position: 200% center; } }
-        .voice-btn { background: #ff0050; color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; box-shadow: 0 0 15px rgba(255, 0, 80, 0.4); }
-        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 15px; border-radius: 12px; color: white; outline: none; }
-        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 12px; font-weight: bold; color: #000; }
-        .stats-panel { background: #161616; border-radius: 18px; padding: 18px; display: flex; align-items: center; gap: 15px; border: 1px solid #333; margin-bottom: 15px; }
-        #avatar { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--primary); background: #333; }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; flex: 1; text-align: center; }
-        .stat-label { font-size: 0.6rem; color: #888; display: block; }
-        .stat-val { color: var(--primary); font-weight: bold; font-size: 1rem; }
-        #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 12px; }
-        .chat-card { background: var(--card); padding: 15px; border-radius: 15px; border-left: 5px solid var(--primary); }
+
+        .voice-btn { background: var(--secondary); color: white; border: none; padding: 16px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(255, 0, 80, 0.4); }
+        .voice-btn.active { background: #333; box-shadow: none; color: #888; }
+
+        .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
+        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 15px; border-radius: 12px; color: white; font-size: 1rem; }
+        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 12px; font-weight: bold; }
+
+        .stats-panel { background: #161616; border-radius: 18px; padding: 15px; display: flex; align-items: center; gap: 12px; border: 1px solid #333; margin-bottom: 15px; }
+        #avatar { width: 65px; height: 65px; border-radius: 50%; border: 2px solid var(--primary); background: #222; object-fit: cover; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; flex: 1; text-align: center; }
+        .stat-val { color: var(--primary); font-weight: bold; font-size: 1rem; display: block; }
+        .stat-label { font-size: 0.6rem; color: #777; }
+
+        #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 10px; padding-bottom: 20px; }
+        .chat-card { background: var(--card); padding: 14px; border-radius: 15px; border-left: 5px solid var(--primary); animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
-    <audio id="bgTracker" loop playsinline>
-        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mp3">
-    </audio>
+    <audio id="bgTracker" loop playsinline src="https://github.com/anars/blank-audio/raw/master/10-minutes-of-silence.mp3"></audio>
 
     <div class="logo-container"><div class="mactalk-logo">Mac Talk</div></div>
     <button id="voiceInit" class="voice-btn">⚡ MONITOR ACTIVE</button>
+    
     <div class="input-group">
         <input id="userId" placeholder="TikTok ID">
         <button class="connect-btn" onclick="connect()">接続</button>
@@ -39,7 +46,7 @@
     <div class="stats-panel">
         <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
         <div style="flex:1">
-            <div id="hostName" style="font-weight:bold; margin-bottom:5px;">未接続</div>
+            <div id="hostName" style="font-weight:bold; font-size:1.1rem; margin-bottom:4px;">未接続</div>
             <div class="stats-grid">
                 <div><span class="stat-label">フォロー</span><span id="followers" class="stat-val">0</span></div>
                 <div><span class="stat-label">現在</span><span id="currentView" class="stat-val">0</span></div>
@@ -51,68 +58,62 @@
 
     <script>
         const socket = io();
-        let voiceEnabled = false, speechQueue = [], isSpeaking = false, maxViewers = 0;
-        let processedMsgIds = new Set();
+        let voiceEnabled = false, speechQueue = [], isSpeaking = false, maxCount = 0;
+        let processedIds = new Set();
 
         const clean = (t) => t ? t.replace(/[^\u3041-\u3096\u30A1-\u30F6\u4E00-\u9FFF\uFF66-\uFF9F\u0030-\u0039\u0041-\u005A\u0061-\u007A]/g, '').trim() : "";
 
-        // バックグラウンド維持用の設定
-        function enableBackgroundMode() {
-            const audio = document.getElementById('bgTracker');
-            audio.volume = 0.01; // 最小音量で再生
-            audio.play();
-            
-            // iPhoneのロック画面に「Mac Talk Active」と表示させる
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata = new MediaMetadata({
-                    title: 'Mac Talk PRO',
-                    artist: 'Monitoring...',
-                    album: 'Background Active'
-                });
-            }
-        }
-
         document.getElementById('voiceInit').addEventListener('click', function() {
             voiceEnabled = true;
-            window.speechSynthesis.cancel();
-            enableBackgroundMode();
-            speak("バックグラウンド稼働を開始。");
-            this.style.background = "#333";
-            this.innerText = "⚡ BACKGROUND ON";
+            this.classList.add('active');
+            this.innerText = "⚡ BACKGROUND RUNNING";
+            
+            // 無音ファイルを再生して、システムプレイヤーを奪う
+            const audio = document.getElementById('bgTracker');
+            audio.play().then(() => {
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: 'Mac Talk PRO',
+                        artist: 'Live Monitoring...',
+                        artwork: [{ src: 'https://cdn-icons-png.flaticon.com/512/3022/3022607.png', sizes: '512x512', type: 'image/png' }]
+                    });
+                }
+            });
+            speak("マックトーク、バックグラウンド接続待機中。");
         });
 
         function connect() {
             const id = document.getElementById('userId').value;
             if(!id) return;
-            processedMsgIds.clear();
+            processedIds.clear();
             document.getElementById('chats').innerHTML = "";
             socket.emit('setTargetUser', id);
         }
 
         socket.on('roomInfo', (data) => {
-            document.getElementById('avatar').src = data.avatar;
+            if(data.avatar) document.getElementById('avatar').src = data.avatar;
             document.getElementById('hostName').innerText = data.nickname;
             document.getElementById('followers').innerText = data.followerCount.toLocaleString();
             document.getElementById('currentView').innerText = data.viewerCount.toLocaleString();
-            speak(`${clean(data.nickname)}に接続完了。`);
+            speak(`${clean(data.nickname)}さんに接続しました。`);
         });
 
         socket.on('viewerUpdate', (data) => {
             document.getElementById('currentView').innerText = data.viewerCount.toLocaleString();
-            if(data.viewerCount > maxViewers) {
-                maxViewers = data.viewerCount;
-                document.getElementById('maxView').innerText = maxViewers.toLocaleString();
+            if(data.viewerCount > maxCount) {
+                maxCount = data.viewerCount;
+                document.getElementById('maxView').innerText = maxCount.toLocaleString();
             }
         });
 
         socket.on('chat', (data) => {
-            if (processedMsgIds.has(data.msgId)) return;
-            processedMsgIds.add(data.msgId);
-            if (processedMsgIds.size > 100) processedMsgIds.delete(processedMsgIds.values().next().value);
+            if (processedIds.has(data.msgId)) return;
+            processedIds.add(data.msgId);
+            if (processedIds.size > 50) processedIds.delete(processedIds.values().next().value);
 
             const card = document.createElement('div');
             card.className = 'chat-card';
-            card.innerHTML = `<span style="color:var(--primary); font-size:0.8rem;">@${data.nickname}</span><br>${data.comment}`;
+            card.innerHTML = `<span style="color:var(--primary); font-size:0.8rem; font-weight:bold;">@${data.nickname}</span><br>${data.comment}`;
             document.getElementById('chats').prepend(card);
             
             if(voiceEnabled) {
@@ -123,17 +124,17 @@
 
         function speak(t) {
             if(!voiceEnabled) return;
-            speechQueue.push(t);
+            const u = new SpeechSynthesisUtterance(t);
+            u.lang = 'ja-JP'; u.rate = 1.1;
+            u.onend = () => { isSpeaking = false; process(); };
+            speechQueue.push(u);
             if(!isSpeaking) process();
         }
 
         function process() {
-            if(speechQueue.length === 0) { isSpeaking = false; return; }
+            if(speechQueue.length === 0) return;
             isSpeaking = true;
-            const u = new SpeechSynthesisUtterance(speechQueue.shift());
-            u.lang = 'ja-JP'; u.rate = 1.1;
-            u.onend = () => { setTimeout(process, 50); };
-            window.speechSynthesis.speak(u);
+            window.speechSynthesis.speak(speechQueue.shift());
         }
     </script>
 </body>
