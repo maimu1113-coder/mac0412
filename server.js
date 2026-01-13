@@ -9,34 +9,39 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
-io.on('connection', (socket) => {
-    let tiktokConnection;
+let tiktokConnection; // 接続を1つに固定
 
+io.on('connection', (socket) => {
     socket.on('setTargetUser', (uniqueId) => {
-        if (tiktokConnection) tiktokConnection.disconnect();
+        // 前の接続が残っていたら完全に停止させる
+        if (tiktokConnection) {
+            tiktokConnection.disconnect();
+            tiktokConnection = null;
+        }
+
         tiktokConnection = new WebcastPushConnection(uniqueId);
 
         tiktokConnection.connect().then(state => {
-            // state.roomInfo から確実にデータを抽出
-            const room = state.roomInfo;
-            io.emit('roomInfo', {
-                nickname: room.owner.nickname || uniqueId,
-                avatar: room.owner.avatar_thumb.url_list[0],
-                followerCount: room.owner.stats.follower_count || 0,
+            // 接続成功時にデータを送信
+            socket.emit('roomInfo', {
+                nickname: state.roomInfo.owner.nickname,
+                avatar: state.roomInfo.owner.avatar_thumb.url_list[0],
+                followerCount: state.roomInfo.owner.stats.follower_count,
                 viewerCount: state.viewerCount || 0
             });
         }).catch(err => console.error('Connect Error', err));
 
+        // イベントリスナーも1回だけ登録されるように socket ではなく個別に管理
         tiktokConnection.on('roomUser', data => {
-            io.emit('viewerUpdate', { viewerCount: data.viewerCount });
+            socket.emit('viewerUpdate', { viewerCount: data.viewerCount });
         });
 
         tiktokConnection.on('chat', data => {
-            io.emit('chat', { nickname: data.nickname, comment: data.comment });
+            socket.emit('chat', { nickname: data.nickname, comment: data.comment, msgId: data.msgId });
         });
 
         tiktokConnection.on('gift', data => {
-            io.emit('gift', { nickname: data.nickname, giftName: data.giftName });
+            socket.emit('gift', { nickname: data.nickname, giftName: data.giftName });
         });
     });
 
@@ -46,4 +51,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Server is running`));
+server.listen(PORT, () => console.log(`Server Ready`));
