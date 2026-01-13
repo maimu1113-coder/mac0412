@@ -1,7 +1,6 @@
 {
   "name": "mactok-pro-ultra",
   "version": "1.0.0",
-  "description": "TikTok Live Reader All-in-One",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
