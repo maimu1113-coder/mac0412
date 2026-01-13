@@ -7,52 +7,58 @@
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --surface: #1a1a1a; }
-        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
-        .header { margin-bottom: 10px; }
-        .voice-btn { background: var(--secondary); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; }
-        .input-area { display: flex; gap: 5px; margin-bottom: 10px; }
-        input { flex: 1; background: var(--surface); border: 1px solid #333; padding: 10px; border-radius: 5px; color: white; }
-        button.connect-btn { background: var(--primary); color: black; border: none; padding: 10px; border-radius: 5px; font-weight: bold; }
-        #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 8px; }
-        .chat-card { background: var(--surface); padding: 10px; border-radius: 8px; border-left: 4px solid var(--primary); }
-        /* ギフト用の特別なデザイン */
-        .gift-card { border-left: 4px solid var(--secondary); background: rgba(255, 0, 80, 0.2); border: 1px solid var(--secondary); animation: blink 1s; }
-        @keyframes blink { 0% { opacity: 0.5; } 100% { opacity: 1; } }
-        .nickname { color: var(--primary); font-weight: bold; display: block; font-size: 0.8rem; }
+        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: 15px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        .voice-btn { background: var(--secondary); color: white; border: none; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 15px; font-size: 1.1rem; box-shadow: 0 0 15px rgba(255, 0, 80, 0.4); }
+        .controls { display: flex; gap: 8px; margin-bottom: 15px; }
+        input { flex-grow: 1; background: var(--surface); border: 1px solid #333; padding: 12px; border-radius: 8px; color: white; }
+        button.connect-btn { background: var(--primary); color: black; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #chats { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 10px; }
+        .chat-card { background: var(--surface); padding: 12px; border-radius: 10px; border-left: 4px solid var(--primary); }
+        .gift-card { border-left: 4px solid var(--secondary); background: rgba(255, 0, 80, 0.2); border: 1px solid var(--secondary); }
+        .nickname { color: var(--primary); font-weight: bold; font-size: 0.8rem; display: block; }
     </style>
 </head>
 <body>
-    <button id="voiceInit" class="voice-btn">【読み上げを開始する】</button>
-    <div class="input-area">
-        <input id="userId" placeholder="TikTok ID">
+    <button id="voiceInit" class="voice-btn">【 🔴 読み上げ＆通知音を有効にする 】</button>
+
+    <div class="controls">
+        <input id="userId" placeholder="TikTok IDを入力">
         <button class="connect-btn" onclick="connect()">接続</button>
     </div>
+    
     <div id="chats"></div>
 
     <script>
         const socket = io();
+        let voiceEnabled = false;
         let speechQueue = [];
         let isSpeaking = false;
-        let voiceEnabled = false;
 
-        // ギフト音
+        // ギフト通知音（ピーン！）
         function playGiftSound() {
-            const context = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = context.createOscillator();
-            const gain = context.createGain();
-            osc.connect(gain); gain.connect(context.destination);
-            osc.frequency.setValueAtTime(1000, context.currentTime);
-            gain.gain.setValueAtTime(0.1, context.currentTime);
-            osc.start(); osc.stop(context.currentTime + 0.1);
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                osc.start(); osc.stop(ctx.currentTime + 0.4);
+            } catch(e) { console.log("Sound error"); }
         }
 
+        // 音声ボタン
         document.getElementById('voiceInit').addEventListener('click', function() {
             voiceEnabled = true;
-            this.innerText = "🔊 読み上げ中...";
-            this.style.background = "#444";
-            const u = new SpeechSynthesisUtterance("ギフト読み上げ準備完了");
-            u.lang = 'ja-JP';
-            window.speechSynthesis.speak(u);
+            window.speechSynthesis.cancel();
+            const startMsg = new SpeechSynthesisUtterance("準備ができました。ライブIDを入れて接続してください。");
+            startMsg.lang = 'ja-JP';
+            window.speechSynthesis.speak(startMsg);
+            this.innerText = "🔊 全機能有効中";
+            this.style.background = "#333";
+            this.style.boxShadow = "none";
         });
 
         function speak(text) {
@@ -68,14 +74,20 @@
             uttr.lang = 'ja-JP';
             uttr.rate = 1.2;
             uttr.onend = () => { setTimeout(processQueue, 50); };
+            uttr.onerror = () => { isSpeaking = false; processQueue(); };
             window.speechSynthesis.speak(uttr);
         }
 
         function connect() {
             const id = document.getElementById('userId').value;
-            if(id) socket.emit('setTargetUser', id);
+            if(id) {
+                window.speechSynthesis.cancel();
+                speechQueue = [];
+                socket.emit('setTargetUser', id);
+            }
         }
 
+        // コメント受信
         socket.on('chat', (data) => {
             const chatBox = document.getElementById('chats');
             const card = document.createElement('div');
@@ -84,20 +96,23 @@
             chatBox.prepend(card);
 
             let cleanMsg = data.comment.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
-            if (cleanMsg.trim()) speak(`${data.nickname}さん。${cleanMsg}`);
+            if (cleanMsg.trim()) {
+                speak(`${data.nickname}さん。${cleanMsg}`);
+            }
         });
 
-        // ★ギフト表示と音声の追加
+        // ギフト受信
         socket.on('gift', (data) => {
-            if (voiceEnabled) playGiftSound();
-            
+            if (voiceEnabled) playGiftSound(); // 音を鳴らす
+
             const chatBox = document.getElementById('chats');
             const card = document.createElement('div');
             card.className = 'chat-card gift-card';
-            card.innerHTML = `<span class="nickname" style="color:#ff0050">🎁 @${data.nickname}</span>${data.giftName}をプレゼント！`;
+            card.innerHTML = `<span class="nickname" style="color:#ff0050">🎁 @${data.nickname}</span>${data.giftName}！`;
             chatBox.prepend(card);
 
-            speak(`${data.nickname}さん、ギフトの${data.giftName}ありがとうございます！`);
+            // 通知音の後に喋る
+            speak(`${data.nickname}さん、ギフトありがとうございます！`);
         });
     </script>
 </body>
