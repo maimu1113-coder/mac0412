@@ -3,54 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>TikTok Live Dashboard</title>
+    <title>TikTok Monitor PRO</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #050505; --card: #121212; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --card: #1a1a1a; }
+        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
         
-        /* ヘッダー・ボタン周り */
-        .header-nav { padding-top: 10px; margin-bottom: 15px; }
-        .voice-btn { background: linear-gradient(45deg, var(--secondary), #ff4d88); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; font-size: 0.9rem; box-shadow: 0 4px 15px rgba(255, 0, 80, 0.3); }
-        .input-group { display: flex; gap: 8px; margin-top: 10px; }
-        input { flex: 1; background: #1a1a1a; border: 1px solid #333; padding: 12px; border-radius: 10px; color: white; }
-        .connect-btn { background: var(--primary); border: none; padding: 0 20px; border-radius: 10px; font-weight: bold; }
+        /* ボタン位置を下げてノッチ回避 */
+        .header { padding-top: 20px; margin-bottom: 15px; }
+        .voice-btn { background: var(--secondary); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 10px; }
+        .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
+        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 12px; border-radius: 8px; color: white; }
+        .connect-btn { background: var(--primary); border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; }
 
-        /* プロフィール・統計エリア */
-        .stats-container { background: var(--card); border-radius: 15px; padding: 15px; margin-bottom: 15px; border: 1px solid #222; display: none; grid-template-columns: auto 1fr; gap: 15px; align-items: center; }
-        #avatar { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--primary); }
-        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.75rem; }
-        .stat-item { background: #1e1e1e; padding: 5px 10px; border-radius: 6px; }
-        .stat-label { color: #888; display: block; }
-        .stat-value { color: var(--primary); font-weight: bold; font-size: 0.9rem; }
+        /* 配信者情報の表示エリア（最初から見えるようにする） */
+        .stats-panel { background: #222; border-radius: 15px; padding: 15px; display: flex; align-items: center; gap: 15px; border: 1px solid var(--primary); margin-bottom: 15px; }
+        #avatar { width: 50px; height: 50px; border-radius: 50%; background: #444; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.7rem; flex: 1; }
+        .stat-val { color: var(--primary); font-weight: bold; font-size: 0.9rem; display: block; }
 
-        /* チャットエリア */
-        #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 10px; padding-right: 5px; }
-        .chat-card { background: var(--card); padding: 12px; border-radius: 12px; border-left: 4px solid var(--primary); animation: fadeIn 0.3s ease; }
-        .gift-card { border-left-color: var(--secondary); background: rgba(255, 0, 80, 0.1); border: 1px solid rgba(255, 0, 80, 0.3); }
-        .nickname { font-size: 0.75rem; color: var(--primary); font-weight: bold; margin-bottom: 4px; display: block; }
-        .comment { font-size: 0.95rem; line-height: 1.4; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        #chats { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 8px; }
+        .chat-card { background: var(--card); padding: 10px; border-radius: 10px; border-left: 4px solid var(--primary); }
     </style>
 </head>
 <body>
-    <div class="header-nav">
+    <div class="header">
         <button id="voiceInit" class="voice-btn">【 🔴 音声を有効にする 】</button>
         <div class="input-group">
-            <input id="userId" placeholder="TikTok ID">
+            <input id="userId" placeholder="TikTok IDを入力">
             <button class="connect-btn" onclick="connect()">接続</button>
         </div>
     </div>
 
-    <div id="statsArea" class="stats-container">
-        <img id="avatar" src="" alt="">
-        <div>
-            <div id="hostName" style="font-weight:bold; margin-bottom:8px; font-size:1rem;">---</div>
+    <div class="stats-panel">
+        <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+        <div style="flex:1">
+            <div id="hostName" style="font-size:0.9rem; font-weight:bold; margin-bottom:5px;">未接続</div>
             <div class="stats-grid">
-                <div class="stat-item"><span class="stat-label">フォロー</span><span id="followers" class="stat-value">0</span></div>
-                <div class="stat-item"><span class="stat-label">現在</span><span id="currentView" class="stat-value">0</span></div>
-                <div class="stat-item"><span class="stat-label">最高同接</span><span id="maxView" class="stat-value">0</span></div>
+                <div>フォロワー<span id="followers" class="stat-val">0</span></div>
+                <div>現在<span id="currentView" class="stat-val">0</span></div>
+                <div>最高同接<span id="maxView" class="stat-val">0</span></div>
             </div>
         </div>
     </div>
@@ -64,47 +56,36 @@
         let isSpeaking = false;
         let maxViewers = 0;
 
-        const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
-        const shortEmojiDict = { '🤣': '笑い', '😂': '笑い', '❤️': 'ハート', '👍': 'グッド' };
-
-        const getSmartText = (text) => {
-            let plain = text.replace(emojiRegex, '').trim();
-            if (plain) return plain;
-            const emojis = text.match(emojiRegex);
-            return emojis ? (shortEmojiDict[emojis[0]] || "") : "";
-        };
-
-        function playGiftSound() {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.frequency.setValueAtTime(1000, ctx.currentTime);
-            gain.gain.setValueAtTime(0.05, ctx.currentTime);
-            osc.start(); osc.stop(ctx.currentTime + 0.2);
-        }
-
+        // 音声有効化
         document.getElementById('voiceInit').addEventListener('click', function() {
             voiceEnabled = true;
             window.speechSynthesis.cancel();
-            this.innerText = "🔊 モニター稼働中";
+            const u = new SpeechSynthesisUtterance("読み上げ準備完了");
+            u.lang = 'ja-JP';
+            window.speechSynthesis.speak(u);
+            this.innerText = "🔊 読み上げ稼働中";
             this.style.background = "#333";
         });
 
         function connect() {
             const id = document.getElementById('userId').value;
-            if(id) socket.emit('setTargetUser', id);
+            if(!id) return;
+            // リセット処理
+            maxViewers = 0;
+            speechQueue = [];
+            window.speechSynthesis.cancel();
+            socket.emit('setTargetUser', id);
         }
 
-        // 配信者情報の表示
+        // 配信者情報受信
         socket.on('roomInfo', (data) => {
-            document.getElementById('statsArea').style.display = 'grid';
-            document.getElementById('avatar').src = data.roomInfo.owner.avatar_thumb.url_list[0];
-            document.getElementById('hostName').innerText = data.roomInfo.owner.nickname;
+            document.getElementById('avatar').src = data.avatar;
+            document.getElementById('hostName').innerText = data.nickname;
             document.getElementById('followers').innerText = data.followerCount.toLocaleString();
+            document.getElementById('currentView').innerText = data.viewerCount.toLocaleString();
         });
 
-        // 視聴者数の更新
+        // 同接数更新
         socket.on('viewerUpdate', (data) => {
             document.getElementById('currentView').innerText = data.viewerCount.toLocaleString();
             if(data.viewerCount > maxViewers) {
@@ -116,34 +97,35 @@
         socket.on('chat', (data) => {
             const card = document.createElement('div');
             card.className = 'chat-card';
-            card.innerHTML = `<span class="nickname">@${data.nickname}</span><div class="comment">${data.comment}</div>`;
+            card.innerHTML = `<span style="color:var(--primary); font-size:0.8rem;">@${data.nickname}</span><br>${data.comment}`;
             document.getElementById('chats').prepend(card);
-            if (voiceEnabled) {
-                let sName = getSmartText(data.nickname);
-                let sMsg = getSmartText(data.comment);
-                if (sMsg) speak(`${sName}さん、${sMsg}`);
+            
+            if(voiceEnabled) {
+                // 絵文字除去して読み上げ
+                let msg = data.comment.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+                if(msg) speak(`${data.nickname}さん、${msg}`);
             }
         });
 
         socket.on('gift', (data) => {
-            if (voiceEnabled) playGiftSound();
             const card = document.createElement('div');
-            card.className = 'chat-card gift-card';
-            card.innerHTML = `<span class="nickname">🎁 @${data.nickname}</span><div class="comment">${data.giftName}ありがとうございます！</div>`;
+            card.className = 'chat-card';
+            card.style.borderLeftColor = 'var(--secondary)';
+            card.innerHTML = `<span style="color:var(--secondary)">🎁 @${data.nickname}</span><br>${data.giftName}！`;
             document.getElementById('chats').prepend(card);
-            speak(`${getSmartText(data.nickname)}さん、ギフトありがとうございます！`);
+            speak(`${data.nickname}さん、ギフトありがとうございます！`);
         });
 
         function speak(t) {
             speechQueue.push(t);
-            if (!isSpeaking) process();
+            if(!isSpeaking) process();
         }
 
         function process() {
-            if (speechQueue.length === 0) { isSpeaking = false; return; }
+            if(speechQueue.length === 0) { isSpeaking = false; return; }
             isSpeaking = true;
             const u = new SpeechSynthesisUtterance(speechQueue.shift());
-            u.lang = 'ja-JP'; u.rate = 1.05;
+            u.lang = 'ja-JP';
             u.onend = () => { setTimeout(process, 100); };
             window.speechSynthesis.speak(u);
         }
