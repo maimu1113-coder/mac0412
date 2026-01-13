@@ -3,143 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Live Stream Monitor PRO</title>
+    <title>TikTok Live Monitor ULTIMATE</title>
     <script src="/socket.io/socket.io.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root {
-            --primary: #00f2ea;
-            --secondary: #ff0050;
-            --bg: #0d0d0d;
-            --surface: #1a1a1a;
-        }
-
-        body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: white;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            box-sizing: border-box;
-        }
-
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding-bottom: 20px;
-            border-bottom: 2px solid var(--surface);
-        }
-
-        .header h1 {
-            font-size: 1.5rem;
-            margin: 0;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .voice-btn {
-            background: var(--secondary);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 50px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 0 15px rgba(255, 0, 80, 0.4);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
-        }
-
-        input {
-            flex-grow: 1;
-            background: var(--surface);
-            border: 1px solid #333;
-            padding: 12px;
-            border-radius: 8px;
-            color: white;
-            font-size: 1rem;
-        }
-
-        input:focus {
-            border-color: var(--primary);
-            outline: none;
-        }
-
-        button.connect-btn {
-            background: var(--primary);
-            color: black;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        #status {
-            font-size: 0.9rem;
-            color: #888;
-            margin-bottom: 10px;
-        }
-
-        #chats {
-            flex-grow: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column-reverse;
-            gap: 10px;
-            padding-right: 10px;
-        }
-
-        .chat-card {
-            background: var(--surface);
-            padding: 12px;
-            border-radius: 10px;
-            border-left: 4px solid var(--primary);
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        .nickname {
-            color: var(--primary);
-            font-weight: bold;
-            font-size: 0.85rem;
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        .message {
-            line-height: 1.4;
-        }
-
-        /* スクロールバーのデザイン */
-        #chats::-webkit-scrollbar { width: 6px; }
-        #chats::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        :root { --primary: #00f2ea; --secondary: #ff0050; --bg: #0d0d0d; --surface: #1a1a1a; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 2px solid var(--surface); }
+        .header h1 { font-size: 1.5rem; margin: 0; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .voice-btn { background: var(--secondary); color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; cursor: pointer; box-shadow: 0 0 15px rgba(255, 0, 80, 0.4); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .controls { display: flex; gap: 10px; margin: 20px 0; }
+        input { flex-grow: 1; background: var(--surface); border: 1px solid #333; padding: 12px; border-radius: 8px; color: white; }
+        button.connect-btn { background: var(--primary); color: black; border: none; padding: 12px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #chats { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 10px; }
+        .chat-card { background: var(--surface); padding: 12px; border-radius: 10px; border-left: 4px solid var(--primary); animation: slideIn 0.3s; }
+        .gift-card { background: rgba(255, 0, 80, 0.1); border-left: 4px solid var(--secondary); border: 1px solid var(--secondary); }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        .nickname { color: var(--primary); font-weight: bold; font-size: 0.85rem; display: block; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1><i class="fab fa-tiktok"></i> LIVE MONITOR PRO</h1>
-        <button id="voiceInit" class="voice-btn">音声読上げを有効化</button>
+        <h1><i class="fab fa-tiktok"></i> LIVE MONITOR ULTIMATE</h1>
+        <button id="voiceInit" class="voice-btn">音声を有効化</button>
     </div>
 
     <div class="controls">
@@ -147,57 +34,86 @@
         <button class="connect-btn" onclick="connect()">接続</button>
     </div>
     
-    <div id="status"><i class="fas fa-circle-notch"></i> 待機中</div>
-    
-    <div id="chats">
-        </div>
+    <div id="status">待機中</div>
+    <div id="chats"></div>
 
     <script>
         const socket = io();
         let isVoiceEnabled = false;
+        let speechQueue = []; // 読み上げ待ちのリスト
+        let isSpeaking = false;
 
-        // 音声の初期化（ブラウザ制限解除）
+        // ギフト通知用の音（電子音を生成）
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playGiftSound() {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // ラの音
+            oscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.2);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.2);
+        }
+
         document.getElementById('voiceInit').addEventListener('click', function() {
             isVoiceEnabled = true;
-            this.innerHTML = '<i class="fas fa-volume-up"></i> 音声有効';
+            audioCtx.resume();
+            this.innerHTML = '音声有効中';
             this.style.background = "#333";
             this.style.animation = "none";
-            this.style.boxShadow = "none";
-            
-            const startMsg = new SpeechSynthesisUtterance("読み上げを開始します");
-            startMsg.lang = 'ja-JP';
-            window.speechSynthesis.speak(startMsg);
         });
 
         function connect() {
             const id = document.getElementById('userId').value;
             if(!id) return;
             socket.emit('setTargetUser', id);
-            document.getElementById('status').innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${id} にリンク中...`;
+        }
+
+        // 順番に読み上げるための関数
+        function processQueue() {
+            if (isSpeaking || speechQueue.length === 0) return;
+            isSpeaking = true;
+            const text = speechQueue.shift();
+            const uttr = new SpeechSynthesisUtterance(text);
+            uttr.lang = 'ja-JP';
+            uttr.rate = 1.2;
+            uttr.onend = () => {
+                isSpeaking = false;
+                processQueue(); // 次のコメントへ
+            };
+            window.speechSynthesis.speak(uttr);
         }
 
         socket.on('chat', (data) => {
-            document.getElementById('status').innerHTML = `<i class="fas fa-signal" style="color:var(--primary)"></i> ライブ受信中`;
-            
             const chatBox = document.getElementById('chats');
             const card = document.createElement('div');
             card.className = 'chat-card';
-            card.innerHTML = `
-                <span class="nickname">@${data.nickname}</span>
-                <span class="message">${data.comment}</span>
-            `;
+            card.innerHTML = `<span class="nickname">@${data.nickname}</span>${data.comment}`;
             chatBox.prepend(card);
 
-            // 100件超えたら古いものを消す（動作を軽くするため）
-            if(chatBox.children.length > 100) chatBox.lastChild.remove();
-
-            // 音声読み上げ
             if (isVoiceEnabled) {
-                const uttr = new SpeechSynthesisUtterance(data.comment);
-                uttr.lang = 'ja-JP';
-                uttr.rate = 1.1; // 1.1倍速でテンポよく
-                window.speechSynthesis.speak(uttr);
+                let cleanComment = data.comment.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+                if (cleanComment.trim().length > 0) {
+                    speechQueue.push(`${data.nickname}さん。 ${cleanComment}`);
+                    processQueue();
+                }
             }
+        });
+
+        // ギフトを受け取った時の処理
+        socket.on('gift', (data) => {
+            if (isVoiceEnabled) {
+                playGiftSound(); // ギフト音を鳴らす
+            }
+            const chatBox = document.getElementById('chats');
+            const card = document.createElement('div');
+            card.className = 'chat-card gift-card';
+            card.innerHTML = `<span class="nickname">🎁 @${data.nickname}</span>${data.giftName}を贈りました！`;
+            chatBox.prepend(card);
         });
     </script>
 </body>
