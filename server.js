@@ -14,9 +14,7 @@ io.on('connection', (socket) => {
 
     socket.on('setTargetUser', (uniqueId) => {
         if (tiktokConnection) tiktokConnection.disconnect();
-
         tiktokConnection = new WebcastPushConnection(uniqueId);
-
         tiktokConnection.connect().then(state => {
             console.log(`Connected to ${state.roomId}`);
         }).catch(err => {
@@ -33,7 +31,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
