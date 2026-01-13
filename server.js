@@ -17,14 +17,16 @@ io.on('connection', (socket) => {
         tiktokConnection = new WebcastPushConnection(uniqueId);
 
         tiktokConnection.connect().then(state => {
-            // 接続時にルーム情報を送信
+            // ★ここが重要：接続できたらすぐに情報を送る
             io.emit('roomInfo', {
-                roomInfo: state.roomInfo,
-                followerCount: state.roomInfo.owner.stats.follower_count
+                nickname: state.roomInfo.owner.nickname,
+                avatar: state.roomInfo.owner.avatar_thumb.url_list[0],
+                followerCount: state.roomInfo.owner.stats.follower_count,
+                viewerCount: state.viewerCount || 0
             });
-        }).catch(err => console.error(err));
+        }).catch(err => console.error('Connection Error:', err));
 
-        // 視聴者数の更新
+        // 視聴者数のリアルタイム更新
         tiktokConnection.on('roomUser', data => {
             io.emit('viewerUpdate', { viewerCount: data.viewerCount });
         });
@@ -44,4 +46,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server is running`));
