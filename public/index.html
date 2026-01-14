@@ -3,22 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Mac Talk PRO ULTIMATE</title>
+    <title>Mac Talk PRO FINAL</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root { --primary: #00f2ea; --bg: #0d0d0d; --card: #1a1a1a; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; overflow-x: hidden; }
-        .mactalk-logo { font-size: 2.5rem; font-weight: 900; text-align: center; color: var(--primary); margin: 30px 0 20px; text-shadow: 0 0 10px var(--primary); }
-        .voice-btn { background: #ff0050; color: white; border: none; padding: 18px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; font-size: 1.1rem; box-shadow: 0 4px 15px rgba(255,0,80,0.3); }
-        .voice-btn.active { background: #333; color: var(--primary); box-shadow: none; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: env(safe-area-inset-top) 15px 20px; }
+        .mactalk-logo { font-size: 2.5rem; font-weight: 900; text-align: center; color: var(--primary); margin: 30px 0; }
+        .voice-btn { background: #ff0050; color: white; border: none; padding: 20px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; font-size: 1.2rem; }
+        .voice-btn.active { background: #333; color: var(--primary); }
         .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
-        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 15px; border-radius: 10px; color: white; outline: none; font-size: 1rem; }
-        .connect-btn { background: var(--primary); border: none; padding: 0 25px; border-radius: 10px; font-weight: bold; color: #000; }
-        .status-card { background: var(--card); padding: 15px; border-radius: 15px; display: flex; align-items: center; gap: 15px; margin-bottom: 20px; border: 1px solid #333; }
-        #avatar { width: 55px; height: 55px; border-radius: 50%; border: 2px solid var(--primary); background: #222; }
-        #chats { display: flex; flex-direction: column-reverse; gap: 12px; }
-        .chat-card { background: var(--card); padding: 15px; border-radius: 12px; border-left: 5px solid var(--primary); animation: slide 0.3s ease; }
-        @keyframes slide { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
+        input { flex: 1; background: var(--card); border: 1px solid #333; padding: 15px; border-radius: 10px; color: white; outline: none; }
+        .connect-btn { background: var(--primary); border: none; padding: 0 20px; border-radius: 10px; font-weight: bold; }
+        .status-card { background: var(--card); padding: 15px; border-radius: 15px; display: flex; align-items: center; gap: 15px; margin-bottom: 15px; border: 1px solid #333; }
+        #avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--primary); }
+        #chats { display: flex; flex-direction: column-reverse; gap: 10px; }
+        .chat-card { background: var(--card); padding: 12px; border-radius: 12px; border-left: 5px solid var(--primary); }
     </style>
 </head>
 <body>
@@ -31,72 +30,74 @@
     </div>
     <div class="status-card">
         <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
-        <div>
-            <div id="hostName" style="font-weight:bold; font-size: 1.1rem;">未接続</div>
-            <div id="statusText" style="font-size:0.85rem; color:#888;">IDを入力してください</div>
-        </div>
+        <div><div id="hostName" style="font-weight:bold;">未接続</div><div id="statusText" style="font-size:0.8rem;color:#777;">IDを入力してください</div></div>
     </div>
     <div id="chats"></div>
 
     <script>
         const socket = io();
-        let voiceEnabled = false, speechQueue = [], isSpeaking = false, audioCtx;
+        let voiceEnabled = false;
 
-        async function keepAlive() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') await audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            gain.gain.value = 0.0001; osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-        }
-
+        // iPhoneの音声ロックを解除するための処理
         document.getElementById('voiceInit').addEventListener('click', async function() {
-            voiceEnabled = true; this.classList.add('active'); this.innerText = "⚡ 読み上げシステム稼働中";
-            try {
-                await document.getElementById('bgTracker').play();
-                setInterval(keepAlive, 1000);
-                speak("システムオンライン。準備が整いました。");
-            } catch(e) { alert("ボタンをもう一度押してください"); }
+            voiceEnabled = true;
+            this.classList.add('active');
+            this.innerText = "⚡ システム稼働中";
+            
+            // 無音再生を開始
+            const bg = document.getElementById('bgTracker');
+            bg.play().catch(() => {
+                alert("もう一度ボタンを押してください。音が許可されませんでした。");
+            });
+
+            // 起動テスト
+            speak("システム、オールグリーン。読み上げの準備ができました。");
         });
 
         function connect() {
             const id = document.getElementById('userId').value;
             if(!id) return;
-            document.getElementById('statusText').innerText = "⏳ 接続を試みています...";
             socket.emit("setTargetUser", id);
         }
 
         socket.on('roomInfo', data => {
             document.getElementById('avatar').src = data.avatar;
             document.getElementById('hostName').innerText = data.nickname;
-            document.getElementById('statusText').innerText = "✅ ライブ配信に接続中";
-            speak(data.nickname + "のライブに接続成功。読み上げを開始します。");
+            document.getElementById('statusText').innerText = "✅ ライブ接続中";
+            speak("接続成功。読み上げを開始します。");
         });
 
         socket.on('chat', data => {
             const card = document.createElement('div');
             card.className = 'chat-card';
-            card.innerHTML = `<span style="color:var(--primary); font-size:0.8rem; font-weight:bold;">@${data.nickname}</span><br>${data.comment}`;
+            card.innerHTML = `<b>@${data.nickname}</b><br>${data.comment}`;
             document.getElementById('chats').prepend(card);
-            if(voiceEnabled) speak(data.nickname + "さん、" + data.comment);
+            
+            // 読み上げ実行
+            if(voiceEnabled) {
+                speak(data.nickname + "さん、" + data.comment);
+            }
         });
 
-        function speak(t) {
+        // iPhoneで確実に音を出すための関数
+        function speak(text) {
             if(!voiceEnabled) return;
-            const u = new SpeechSynthesisUtterance(t);
-            u.lang = 'ja-JP'; u.rate = 1.2;
-            u.onend = () => { isSpeaking = false; process(); };
-            speechQueue.push(u);
-            if(!isSpeaking) process();
+            
+            // 読み上げ停止を防ぐためのキャンセル
+            window.speechSynthesis.cancel(); 
+
+            const uttr = new SpeechSynthesisUtterance(text);
+            uttr.lang = 'ja-JP';
+            uttr.rate = 1.2; // 少し早口に設定
+            uttr.pitch = 1.0;
+            
+            window.speechSynthesis.speak(uttr);
         }
 
-        function process() {
-            if(speechQueue.length === 0) return;
-            isSpeaking = true; window.speechSynthesis.speak(speechQueue.shift());
-        }
-
-        document.body.addEventListener('touchstart', () => { if(audioCtx) audioCtx.resume(); });
+        // 画面のどこかを触るたびに音声エンジンをリセット（iPhone対策）
+        document.body.addEventListener('touchstart', () => {
+            window.speechSynthesis.resume();
+        });
     </script>
 </body>
 </html>
