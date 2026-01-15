@@ -5,82 +5,34 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
 <style>
-    /* OBSで透過させるための設定 */
-    body { 
-        margin: 0; 
-        background: transparent !important; 
-        overflow: hidden; 
-        font-family: 'Hiragino Kaku Gothic Pro', 'BIZ UDPGothic', sans-serif;
+    body { margin: 0; background: transparent !important; overflow: hidden; font-family: sans-serif; }
+    #box {
+        position: absolute; bottom: 50px; left: 50px;
+        color: white; font-size: 44px; font-weight: bold;
+        background: rgba(0,0,0,0.6); padding: 15px 30px;
+        border-radius: 15px; opacity: 0; transform: translateY(20px);
+        transition: 0.4s; text-shadow: 2px 2px 4px #000;
+        border-left: 10px solid #00f2ea;
     }
-    
-    #subtitle-box {
-        position: absolute; 
-        bottom: 50px; 
-        left: 50px;
-        color: white; 
-        font-size: 48px; 
-        font-weight: bold;
-        /* 文字の縁取り（可読性アップ） */
-        text-shadow: 
-            3px 3px 0 #000, -1px -1px 0 #000, 
-            1px -1px 0 #000, -1px 1px 0 #000,
-            0 0 10px rgba(0,0,0,0.8);
-        padding: 15px 30px; 
-        background: rgba(0, 0, 0, 0.5); /* 半透明の黒背景 */
-        border-radius: 15px; 
-        border-left: 12px solid #00f2ea; /* TikTokカラーのアクセント */
-        opacity: 0; 
-        transform: translateY(20px);
-        transition: all 0.4s ease-out;
-    }
-
-    /* 表示される時のアニメーション */
-    .show { 
-        opacity: 1 !important; 
-        transform: translateY(0) !important; 
-    }
+    .show { opacity: 1; transform: translateY(0); }
 </style>
 </head>
 <body>
-
-<div id="subtitle-box">接続を待機中...</div>
-
+<div id="box"></div>
 <script>
-    const socket = io();
-    const box = document.getElementById("subtitle-box");
+    const socket=io();
+    const box=document.getElementById("box");
     let timer;
-
-    // サーバーからのイベントを受け取る
     socket.on("ev", e => {
-        let message = "";
-        
-        if(e.t === "chat") {
-            message = `${e.u}: ${e.m}`;
-        } else if(e.t === "follow") {
-            message = `👤 ${e.u} がフォロー！`;
-            // フォロー時に紙吹雪
-            confetti({ particleCount: 50, spread: 70, origin: { y: 0.8 } });
-        } else if(e.t === "gift") {
-            message = `🎁 ${e.u} さんギフトありがとう！`;
-            // ギフト時に豪華な紙吹雪
-            confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#ff0050', '#00f2ea'] });
-        }
-
-        if(message) {
-            updateSubtitle(message);
+        let m = "";
+        if(e.t==="chat") m = `${e.u}: ${e.m}`;
+        if(e.t==="follow") { m = `👤 ${e.u} Follow!`; confetti({particleCount:40, origin:{y:0.8}}); }
+        if(e.t==="gift") { m = `🎁 ${e.u} Gift!`; confetti({particleCount:100, colors:['#ff0050','#00f2ea'], origin:{y:0.7}}); }
+        if(m){
+            box.innerText=m; box.classList.add("show");
+            clearTimeout(timer); timer=setTimeout(()=>box.classList.remove("show"), 6000);
         }
     });
-
-    function updateSubtitle(text) {
-        box.innerText = text;
-        box.classList.add("show");
-
-        // 6秒後に自動で消す
-        clearTimeout(timer);
-        timer = setTimeout(() => {
-            box.classList.remove("show");
-        }, 6000);
-    }
 </script>
 </body>
 </html>
