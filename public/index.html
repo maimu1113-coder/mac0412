@@ -7,7 +7,7 @@
 <script src="/socket.io/socket.io.js"></script>
 
 <style>
-:root {
+:root{
   --bg:#0b0e14;
   --side:#161920;
   --card:#1f232d;
@@ -15,17 +15,18 @@
   --pink:#ff0050;
 }
 
-body {
+body{
   margin:0;
   height:100vh;
-  overflow:hidden;
   display:flex;
   background:var(--bg);
   color:#fff;
   font-family:sans-serif;
+  overflow:hidden;
 }
 
-.sidebar {
+/* ===== サイドバー ===== */
+.sidebar{
   width:60px;
   background:var(--side);
   display:flex;
@@ -35,39 +36,92 @@ body {
   gap:35px;
 }
 
-.side-btn {
+.side-btn{
   font-size:1.5rem;
-  cursor:pointer;
   opacity:.6;
+  cursor:pointer;
 }
 
-.main {
+/* ===== メイン ===== */
+.main{
   flex:1;
   display:flex;
   flex-direction:column;
   padding:12px;
+  gap:10px;
   overflow:hidden;
 }
 
-.card {
-  background:var(--card);
-  border-radius:12px;
-  padding:12px;
-  margin-bottom:10px;
+/* ===== ヘッダー ===== */
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
 }
 
-input {
-  width:100%;
+.header h2{
+  margin:0;
+}
+
+.live-info{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:0.8rem;
+}
+
+.badge{
+  background:red;
+  padding:2px 6px;
+  border-radius:6px;
+  font-size:0.7rem;
+}
+
+/* ===== 配信者情報 ===== */
+#streamer{
+  display:none;
+  align-items:center;
+  gap:10px;
+  background:var(--card);
+  padding:10px;
+  border-radius:12px;
+}
+
+#streamer img{
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  object-fit:cover;
+  background:#000;
+}
+
+.stats{
+  display:flex;
+  gap:12px;
+  font-size:0.75rem;
+  opacity:.9;
+}
+
+/* ===== 入力カード ===== */
+.card{
+  background:var(--card);
+  border-radius:12px;
   padding:14px;
+}
+
+input{
+  width:100%;
+  box-sizing:border-box;
+  padding:14px;
+  font-size:16px;
   border-radius:8px;
   background:#000;
   border:1px solid #555;
   color:#fff;
-  font-size:16px;
   margin-bottom:10px;
 }
 
-button {
+button{
   width:100%;
   padding:14px;
   border:none;
@@ -77,49 +131,22 @@ button {
   cursor:pointer;
 }
 
-.btn-pink { background:var(--pink); color:#fff; }
-.btn-blue { background:var(--accent); color:#000; }
+.btn-pink{ background:var(--pink); color:#fff; }
+.btn-blue{ background:var(--accent); color:#000; }
 
-#streamer {
-  display:none;
-  align-items:center;
-  gap:10px;
-  margin-bottom:10px;
-}
-
-#streamer img {
-  width:46px;
-  height:46px;
-  border-radius:50%;
-}
-
-.badge {
-  background:red;
-  padding:2px 6px;
-  border-radius:6px;
-  font-size:0.7rem;
-  margin-left:6px;
-}
-
-#stats {
-  display:flex;
-  gap:12px;
-  font-size:0.8rem;
-  opacity:.9;
-}
-
-#log-area {
+/* ===== ログ ===== */
+#log-area{
   flex:1;
   overflow-y:auto;
-  background:rgba(255,255,255,0.02);
-  border-radius:10px;
+  background:rgba(255,255,255,0.03);
+  border-radius:12px;
   padding:10px;
   display:flex;
   flex-direction:column;
   gap:8px;
 }
 
-.log-item {
+.log-item{
   background:var(--card);
   padding:10px;
   border-radius:8px;
@@ -132,41 +159,52 @@ button {
 <body>
 
 <div class="sidebar">
-  <div class="side-btn" onclick="location.reload()">🏠</div>
-  <div class="side-btn" onclick="status()">🎤</div>
-  <div class="side-btn" onclick="status()">⚙️</div>
+  <div class="side-btn">🏠</div>
+  <div class="side-btn">🎤</div>
+  <div class="side-btn">⚙️</div>
 </div>
 
 <div class="main">
 
-<h2>Mac Talk <span style="color:var(--accent)">PRO</span></h2>
-
-<div id="streamer">
-  <img id="avatar">
-  <div>
-    <div><strong id="name"></strong><span class="badge">LIVE</span></div>
-    <div id="stats">
-      <div>👥 <span id="followers">0</span></div>
-      <div>❤️ <span id="likes">0</span></div>
+  <!-- ヘッダー -->
+  <div class="header">
+    <h2>Mac Talk <span style="color:var(--accent)">PRO</span></h2>
+    <div class="live-info">
+      <span class="badge">LIVE</span>
+      👥 <span id="followers">0</span>
+      ❤️ <span id="likes">0</span>
     </div>
   </div>
-</div>
 
-<div class="card">
-  <input id="tid" placeholder="TikTok ID (@なし)">
-  <button class="btn-pink" onclick="startVoice()">1. 読み上げON</button>
-  <button class="btn-blue" onclick="connect()">2. 接続</button>
-</div>
+  <!-- 配信者 -->
+  <div id="streamer">
+    <img id="avatar">
+    <div>
+      <div><strong id="name"></strong></div>
+      <div class="stats">
+        <div>👥 <span id="followers2">0</span></div>
+        <div>❤️ <span id="likes2">0</span></div>
+      </div>
+    </div>
+  </div>
 
-<div id="log-area">
-  <div class="log-item">ログ待機中...</div>
-</div>
+  <!-- 入力 -->
+  <div class="card">
+    <input id="tid" placeholder="TikTok ID（@なし）">
+    <button class="btn-pink" onclick="voiceOn=true">1. 読み上げON</button>
+    <button class="btn-blue" onclick="connect()">2. 接続</button>
+  </div>
+
+  <!-- ログ -->
+  <div id="log-area">
+    <div class="log-item">ログ待機中…</div>
+  </div>
 
 </div>
 
 <script>
 const socket = io();
-let voiceOn=false, talking=false, queue=[];
+let voiceOn=false;
 
 function log(m){
   const d=document.createElement("div");
@@ -175,16 +213,11 @@ function log(m){
   document.getElementById("log-area").prepend(d);
 }
 
-function startVoice(){
-  voiceOn=true;
-  log("🎤 読み上げON");
-}
-
 function connect(){
   const id=document.getElementById("tid").value.trim();
-  if(!id) return alert("IDを入力");
+  if(!id) return alert("IDを入力してください");
   socket.emit("setTarget", id.replace("@",""));
-  log("⏳ 接続中...");
+  log("⏳ 接続中…");
 }
 
 socket.on("streamer", d=>{
@@ -192,31 +225,25 @@ socket.on("streamer", d=>{
   avatar.src=d.avatar;
   name.innerText=d.nickname+" (@"+d.uniqueId+")";
   followers.innerText=d.followers;
+  followers2.innerText=d.followers;
   likes.innerText=d.likes;
+  likes2.innerText=d.likes;
+  log("✅ TikTok接続成功！");
 });
 
-socket.on("up-follow", n=>followers.innerText=n);
-socket.on("up-like", n=>likes.innerText=n);
+socket.on("up-follow", n=>{
+  followers.innerText=n;
+  followers2.innerText=n;
+});
+
+socket.on("up-like", n=>{
+  likes.innerText=n;
+  likes2.innerText=n;
+});
 
 socket.on("ev", e=>{
-  if(e.t==="chat"){
-    log("💬 "+e.u+": "+e.m);
-    speak(e.u+"さん "+e.m);
-  }
-  if(e.t==="follow") log("👤 "+e.u+" フォロー！");
-  if(e.t==="sys") log(e.m);
+  if(e.t==="chat") log("💬 "+e.u+"："+e.m);
 });
-
-function speak(t){
-  if(!voiceOn) return;
-  queue.push(t);
-  if(talking) return;
-  talking=true;
-  const u=new SpeechSynthesisUtterance(queue.shift());
-  u.lang="ja-JP";
-  u.onend=()=>{ talking=false; if(queue.length) speak(queue.shift()); };
-  speechSynthesis.speak(u);
-}
 </script>
 
 </body>
