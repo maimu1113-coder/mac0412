@@ -2,105 +2,90 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Mac Talk PRO</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>Mac Talk PRO Control</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-body{margin:0;background:#0b0e14;color:#fff;font-family:sans-serif}
-header{padding:15px;font-weight:900}
-#log{padding:10px;height:60vh;overflow:auto}
-.card{background:#1f232d;margin-bottom:8px;padding:10px;border-radius:10px}
-button,input{width:100%;padding:12px;margin-top:10px;border-radius:10px;border:none}
-button{font-weight:bold}
+:root{--bg:#0b0e14;--side:#161920;--card:#1f232d;--accent:#00f2ea;--pink:#ff0050}
+body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden}
+.sidebar{width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:30px;gap:25px;border-right:1px solid #333}
+.main{flex:1;padding:20px;overflow-y:auto;display:flex;flex-direction:column}
+.card{background:var(--card);padding:15px;border-radius:12px;margin-bottom:10px;border:1px solid #333}
+input{width:100%;padding:12px;background:#000;border:1px solid #444;color:#fff;border-radius:8px;box-sizing:border-box;font-size:16px}
+button{width:100%;padding:15px;margin-top:10px;border-radius:10px;border:none;font-weight:bold;cursor:pointer}
+.btn-pink{background:var(--pink);color:#fff}
+.btn-blue{background:var(--accent);color:#000}
+#log{flex:1;margin-top:15px;overflow-y:auto;font-size:0.85rem;display:flex;flex-direction:column-reverse;gap:5px}
+.log-item{background:#252a35;padding:10px;border-radius:8px;border-left:4px solid var(--accent)}
 </style>
 </head>
 <body>
-
-<header>
-Mac Talk PRO　👁️ <span id="v">0</span>
-</header>
-
-<div style="padding:10px">
-<input id="tid" placeholder="TikTok ID (@なし)">
-<button onclick="startAudio()">① 読み上げを有効</button>
-<button onclick="connect()">② 接続</button>
+<div class="sidebar"><div>🏠</div><div>🎤</div><div>⚙️</div></div>
+<div class="main">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+        <h2 style="margin:0">Mac Talk <span style="color:var(--accent)">PRO</span></h2>
+        <div style="background:#222;padding:4px 10px;border-radius:15px;font-size:0.75rem">👁️ <span id="vCount">0</span></div>
+    </div>
+    <div class="card">
+        <input id="tid" placeholder="TikTok ID (@なし)">
+        <button class="btn-pink" onclick="startAudio()">1. 読み上げを有効にする</button>
+        <button class="btn-blue" onclick="connect()">2. 保存してライブ接続</button>
+    </div>
+    <div id="log"></div>
 </div>
-
-<div id="log"></div>
-
-<video id="pip" muted loop playsinline style="display:none">
-<source src="https://raw.githubusercontent.com/Anarios/return-to-fame/master/assets/empty.mp4">
-</video>
+<video id="pip" muted loop playsinline style="display:none"><source src="https://raw.githubusercontent.com/Anarios/return-to-fame/master/assets/empty.mp4"></video>
 
 <script>
-const socket = io();
-let engine=false, queue=[], talking=false;
-let lastEvent=Date.now();
-
-const autoMsgs=[
- "コメント大歓迎です！",
- "初見さんもどうぞ〜",
- "ゆっくりしていってね！"
-];
+const socket=io();
+let engine=false, queue=[], talking=false, lastEv=Date.now();
+const autoMsgs = ["コメント大歓迎です！","初見さんもゆっくりしていってね","応援ありがとうございます！"];
 
 function startAudio(){
-  engine=true;
-  speech("マックトークを起動しました");
-  document.getElementById("pip").play();
-  setInterval(autoTalk,20000);
+    engine=true;
+    const u=new SpeechSynthesisUtterance("読み上げを開始します。自動盛り上げモード有効。");
+    u.lang='ja-JP'; window.speechSynthesis.speak(u);
+    document.getElementById("pip").play();
+    setInterval(checkAutoTalk, 25000); // 25秒間無言なら自動トーク
 }
 
 function connect(){
-  const id=document.getElementById("tid").value.trim();
-  if(id) socket.emit("setTarget",id);
+    const id=document.getElementById("tid").value.trim();
+    if(id){ socket.emit("setTarget", id); localStorage.setItem("mtid", id); }
 }
 
-socket.on("ev",e=>{
-  lastEvent=Date.now();
-  let msg="";
-  if(e.t==="chat") msg=`${e.u}さん、${e.m}`;
-  if(e.t==="follow") msg=`${e.u}さんフォローありがとう`;
-  if(e.t==="gift") msg=`${e.u}さん${e.g}ありがとう`;
-  if(e.t==="sys") msg=e.m;
+window.onload=()=>{ if(localStorage.getItem("mtid")) document.getElementById("tid").value=localStorage.getItem("mtid"); };
 
-  if(msg){
-    log(msg);
-    queue.push(msg);
-    speakQueue();
-  }
+socket.on("ev", e => {
+    lastEv = Date.now();
+    let t="";
+    if(e.t==="chat") t=`${e.u}さん、${e.m}`;
+    if(e.t==="follow") t=`${e.u}さんフォローありがとう！`;
+    if(e.t==="gift") t=`${e.u}さん、${e.g}を${e.c}個もありがとう！`;
+    if(e.t==="sys") t=e.m;
+    if(t) { addLog(t); queue.push(t); speak(); }
 });
 
-socket.on("view",c=>{
-  document.getElementById("v").innerText=c;
-});
+socket.on("up-v", c => document.getElementById("vCount").innerText = c);
 
-function speakQueue(){
-  if(!engine||talking||queue.length===0) return;
-  talking=true;
-  const u=new SpeechSynthesisUtterance(queue.shift());
-  u.lang="ja-JP";
-  u.rate=1.2;
-  u.onend=()=>{ talking=false; speakQueue(); };
-  speechSynthesis.speak(u);
+function speak(){
+    if(!engine || talking || queue.length===0) return;
+    talking=true;
+    const u=new SpeechSynthesisUtterance(queue.shift());
+    u.lang='ja-JP'; u.rate=1.2;
+    u.onend=()=>{ talking=false; speak(); };
+    window.speechSynthesis.speak(u);
 }
 
-function autoTalk(){
-  if(!engine||Date.now()-lastEvent<20000) return;
-  queue.push(autoMsgs[Math.floor(Math.random()*autoMsgs.length)]);
-  speakQueue();
+function checkAutoTalk(){
+    if(engine && Date.now()-lastEv > 25000 && !talking){
+        const m = autoMsgs[Math.floor(Math.random()*autoMsgs.length)];
+        queue.push(m); speak();
+    }
 }
 
-function speech(t){
-  const u=new SpeechSynthesisUtterance(t);
-  u.lang="ja-JP";
-  speechSynthesis.speak(u);
-}
-
-function log(t){
-  const d=document.createElement("div");
-  d.className="card";
-  d.innerText=t;
-  document.getElementById("log").prepend(d);
+function addLog(m){
+    const d=document.createElement("div"); d.className="log-item";
+    d.innerText=m; document.getElementById("log").prepend(d);
 }
 </script>
 </body>
