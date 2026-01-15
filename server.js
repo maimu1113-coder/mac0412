@@ -13,6 +13,7 @@ io.on("connection", (socket) => {
   let tiktokConn = null;
 
   socket.on("setTarget", async (targetId) => {
+    // 既存の接続があれば一度切断
     if (tiktokConn) { try { await tiktokConn.disconnect(); } catch(e){} }
 
     tiktokConn = new WebcastPushConnection(targetId, {
@@ -24,11 +25,11 @@ io.on("connection", (socket) => {
 
     try {
       await tiktokConn.connect();
-      // 成功したことをスマホに通知（これでスマホのタイマーが止まる）
+      // スマホ側に「成功」を伝える。これでタイマーが止まる
       io.emit("ev", { t: "sys", m: "✅ TikTok接続成功！" });
     } catch (e) {
-      // 失敗したことをスマホに通知
-      io.emit("ev", { t: "sys", m: "❌ 接続失敗（ID確認）" });
+      // スマホ側に「失敗」を伝える
+      io.emit("ev", { t: "sys", m: "❌ 接続失敗（ライブ中か再確認）" });
     }
 
     tiktokConn.on("chat", d => io.emit("ev", { t: "chat", u: d.nickname, m: d.comment }));
@@ -43,4 +44,4 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 Server running`));
+server.listen(PORT, () => console.log(`🚀 Server ready`));
