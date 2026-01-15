@@ -9,22 +9,23 @@
 :root{--bg:#0b0e14;--side:#161920;--card:#1f232d;--accent:#00f2ea;--pink:#ff0050}
 body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden}
 .sidebar{width:60px;min-width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:30px;gap:35px;border-right:1px solid #333}
+.side-btn{font-size:1.5rem;cursor:pointer;opacity:0.6}
 .main{flex:1;display:flex;flex-direction:column;padding:15px;overflow:hidden}
 .card{background:var(--card);padding:15px;border-radius:12px;margin-bottom:10px;border:1px solid #444}
 input{width:100%;padding:15px;background:#000;border:1px solid #555;color:#fff;border-radius:8px;box-sizing:border-box;font-size:18px;margin-bottom:12px}
-button{width:100%;padding:16px;border-radius:10px;border:none;font-weight:bold;margin-bottom:10px;font-size:16px}
+button{width:100%;padding:16px;border-radius:10px;border:none;font-weight:bold;margin-bottom:10px;font-size:16px;cursor:pointer}
 .btn-pink{background:var(--pink);color:#fff}
 .btn-blue{background:var(--accent);color:#000}
 #log-area{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:10px;background:rgba(255,255,255,0.02);border-radius:8px}
 .log-item{background:var(--card);padding:12px;border-radius:8px;border-left:4px solid var(--accent);font-size:0.9rem;color:#fff}
-/* カウントダウン用の強調スタイル */
-.timer-text{color:var(--pink);font-weight:bold;font-variant-numeric: tabular-nums;}
 </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <div class="side-btn" onclick="location.reload()" style="font-size:1.5rem;cursor:pointer">🏠</div>
+    <div class="side-btn" onclick="location.reload()">🏠</div>
+    <div class="side-btn" onclick="checkStat('mic')">🎤</div>
+    <div class="side-btn" onclick="checkStat('sys')">⚙️</div>
 </div>
 
 <div class="main">
@@ -47,17 +48,15 @@ var socket = io();
 var isEngineOn = false;
 var queue = [];
 var isTalking = false;
-
-// 時間計測用の変数
 var connectTimer = null;
-var secondsElapsed = 0;
-var currentLogElement = null;
+var seconds = 0;
+var currentLog = null;
 
-function addLog(msg, isUpdating = false) {
+function addLog(msg, update = false) {
     var area = document.getElementById("log-area");
-    if (isUpdating && currentLogElement) {
-        currentLogElement.innerText = msg;
-        return currentLogElement;
+    if (update && currentLog) {
+        currentLog.innerText = msg;
+        return currentLog;
     }
     var d = document.createElement("div");
     d.className = "log-item";
@@ -66,32 +65,33 @@ function addLog(msg, isUpdating = false) {
     return d;
 }
 
+// 🎤と⚙️の機能
+function checkStat(mode) {
+    if(mode === 'mic') addLog("🎤 読み上げ状態: " + (isEngineOn ? "有効" : "無効"));
+    else addLog("⚙️ システム状態: 正常稼働中 / 計測経過: " + seconds.toFixed(1) + "s");
+}
+
 function clickStart() {
     isEngineOn = true;
     document.getElementById("silent-audio").play();
-    var ut = new SpeechSynthesisUtterance("読み上げを開始しました");
+    var ut = new SpeechSynthesisUtterance("読み上げを開始します");
     ut.lang = 'ja-JP'; window.speechSynthesis.speak(ut);
     addLog("✅ システム：音声エンジン起動");
+    document.getElementById("b1").innerText = "読み上げ有効中";
 }
 
 function clickConnect() {
     var id = document.getElementById("tid").value.replace("@", "").trim();
     if(!id) { alert("IDを入力してください"); return; }
     
-    // カウントアップ開始
-    secondsElapsed = 0;
+    seconds = 0;
     if(connectTimer) clearInterval(connectTimer);
+    currentLog = addLog("⏳ 接続要求中... 0.0秒経過");
     
-    currentLogElement = addLog("⏳ 接続を試行中... 0.0秒経過");
-    
+    // 0.1秒ごとに秒数を更新
     connectTimer = setInterval(function() {
-        secondsElapsed += 0.1;
-        addLog("⏳ 接続を試行中... " + secondsElapsed.toFixed(1) + "秒経過", true);
-        
-        // 15秒以上かかっている場合は警告
-        if(secondsElapsed >= 15) {
-            addLog("⚠️ 接続に時間がかかっています。配信が開始されているか確認してください。", true);
-        }
+        seconds += 0.1;
+        addLog("⏳ 接続要求中... " + seconds.toFixed(1) + "秒経過", true);
     }, 100);
     
     socket.emit("setTarget", id);
@@ -99,17 +99,14 @@ function clickConnect() {
 }
 
 socket.on("ev", function(e) {
-    // 接続成功または失敗のシステムログが来たらタイマーを止める
     if(e.t === "sys") {
-        clearInterval(connectTimer);
-        addLog("📢 " + e.m + " (合計: " + secondsElapsed.toFixed(1) + "秒)");
+        clearInterval(connectTimer); // 成功/失敗が来たらタイマー停止
+        addLog("📢 " + e.m + " (" + seconds.toFixed(1) + "秒)");
     }
-    
     var s = "";
     if(e.t === "chat") { s = e.u + "さん " + e.m; addLog("💬 " + e.u + ": " + e.m); }
     if(e.t === "follow") { s = e.u + "さんフォローありがとう"; addLog("👤 " + e.u + " Follow!"); }
     if(e.t === "gift") { s = e.u + "さん" + e.g + "ありがとう"; addLog("🎁 " + e.u + ": " + e.g + " x" + e.c); }
-
     if(s && isEngineOn) { queue.push(s); talk(); }
 });
 
