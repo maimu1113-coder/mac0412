@@ -3,106 +3,166 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-<title>Mac Talk PRO Control</title>
+<title>Mac Talk PRO</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
 :root{--bg:#0b0e14;--side:#161920;--card:#1f232d;--accent:#00f2ea;--pink:#ff0050}
 body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden}
-/* サイドバー固定 */
-.sidebar{width:60px;min-width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:30px;gap:25px;border-right:1px solid #333;z-index:10}
-/* メインコンテンツ */
-.main{flex:1;padding:20px;display:flex;flex-direction:column;height:100vh;box-sizing:border-box}
+
+/* サイドバー */
+.sidebar{width:60px;min-width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:30px;gap:25px;border-right:1px solid #333}
+.side-icon{font-size:1.5rem;opacity:0.5}
+
+/* メインエリア */
+.main{flex:1;display:flex;flex-direction:column;padding:15px;box-sizing:border-box;overflow:hidden}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .card{background:var(--card);padding:15px;border-radius:12px;margin-bottom:15px;border:1px solid #444}
+
+/* 入力・ボタン */
 input{width:100%;padding:12px;background:#000;border:1px solid #555;color:#fff;border-radius:8px;box-sizing:border-box;font-size:16px;margin-bottom:10px}
-button{width:100%;padding:15px;border-radius:10px;border:none;font-weight:bold;cursor:pointer;margin-bottom:10px}
+button{width:100%;padding:14px;border-radius:10px;border:none;font-weight:bold;margin-bottom:8px;cursor:pointer}
 .btn-pink{background:var(--pink);color:#fff}
 .btn-blue{background:var(--accent);color:#000}
-/* ログエリア：ここが重要 */
-#log-container{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:20px}
-.log-item{background:#252a35;padding:12px;border-radius:8px;border-left:4px solid var(--accent);word-break:break-all;animation: slideIn 0.3s ease-out}
-@keyframes slideIn { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
+
+/* 🚀 ログ表示エリア（ここを強化しました） */
+#log-area{
+    flex:1;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column; /* 上から順に表示 */
+    gap:8px;
+    background: rgba(255,255,255,0.02); /* デバッグ用に薄く色付け */
+    padding:10px;
+    border-radius:8px;
+}
+.log-item{
+    background:var(--card);
+    padding:10px;
+    border-radius:8px;
+    border-left:4px solid var(--accent);
+    font-size:0.9rem;
+    line-height:1.4;
+    word-break:break-all;
+    color: #fff !important; /* 文字色を強制 */
+}
 </style>
 </head>
 <body>
-<div class="sidebar"><div>🏠</div><div>🎤</div><div>⚙️</div></div>
+
+<div class="sidebar">
+    <div class="side-icon" style="opacity:1">🏠</div>
+    <div class="side-icon">🎤</div>
+    <div class="side-icon">⚙️</div>
+</div>
+
 <div class="main">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
-        <h2 style="margin:0">Mac Talk <span style="color:var(--accent)">PRO</span></h2>
+    <div class="header">
+        <h2 style="margin:0;font-size:1.2rem">Mac Talk <span style="color:var(--accent)">PRO</span></h2>
         <div style="background:#222;padding:4px 10px;border-radius:15px;font-size:0.75rem">👁️ <span id="vCount">0</span></div>
     </div>
     
     <div class="card">
-        <input id="tid" placeholder="TikTok ID (@なし)">
-        <button class="btn-pink" onclick="startAudio()">1. 読み上げを有効にする</button>
+        <input id="tid" placeholder="TikTok IDを入力">
+        <button class="btn-pink" onclick="initAudio()">1. 読み上げを有効にする</button>
         <button class="btn-blue" onclick="connect()">2. 保存してライブ接続</button>
     </div>
 
-    <div id="log-container"></div>
+    <div id="log-area">
+        <div class="log-item" style="border-left-color:#888">ログ待機中...</div>
+    </div>
 </div>
 
 <video id="pip" muted loop playsinline style="display:none"><source src="https://raw.githubusercontent.com/Anarios/return-to-fame/master/assets/empty.mp4"></video>
 
 <script>
-const socket=io();
-let engine=false, queue=[], talking=false, lastEv=Date.now();
-const logContainer = document.getElementById("log-container");
+const socket = io();
+let engineOn = false;
+let queue = [];
+let talking = false;
+const logArea = document.getElementById("log-area");
 
-function startAudio(){
-    engine=true;
-    const u=new SpeechSynthesisUtterance("読み上げを開始します");
-    u.lang='ja-JP'; window.speechSynthesis.speak(u);
+// 音声エンジンの初期化
+function initAudio(){
+    engineOn = true;
+    const u = new SpeechSynthesisUtterance("読み上げを開始します。");
+    u.lang = 'ja-JP';
+    window.speechSynthesis.speak(u);
     document.getElementById("pip").play();
+    addLog("📢 システム: 読み上げが有効になりました");
 }
 
+// 接続実行
 function connect(){
-    const id=document.getElementById("tid").value.trim();
-    if(id){ socket.emit("setTarget", id); localStorage.setItem("mtid", id); }
+    const id = document.getElementById("tid").value.trim();
+    if(id){
+        socket.emit("setTarget", id);
+        localStorage.setItem("mtid", id);
+        addLog(`📢 システム: ${id} に接続を試みています...`);
+    }
 }
 
-window.onload=()=>{ if(localStorage.getItem("mtid")) document.getElementById("tid").value=localStorage.getItem("mtid"); };
+// ページ読み込み時にIDを復元
+window.onload = () => {
+    const savedId = localStorage.getItem("mtid");
+    if(savedId) document.getElementById("tid").value = savedId;
+};
 
+// サーバーからのイベント受信
 socket.on("ev", e => {
-    lastEv = Date.now();
-    let textForSpeech = "";
-    let textForLog = "";
+    let logMsg = "";
+    let speechMsg = "";
 
-    if(e.t==="chat") {
-        textForSpeech = `${e.u}さん、${e.m}`;
-        textForLog = `💬 ${e.u}: ${e.m}`;
-    }
-    if(e.t==="follow") {
-        textForSpeech = `${e.u}さんフォローありがとう`;
-        textForLog = `👤 ${e.u} がフォローしました`;
-    }
-    if(e.t==="gift") {
-        textForSpeech = `${e.u}さん、${e.g}ありがとう`;
-        textForLog = `🎁 ${e.u}: ${e.g} x${e.c}`;
-    }
-    if(e.t==="sys") {
-        textForLog = `📢 ${e.m}`;
+    if(e.t === "chat") {
+        logMsg = `💬 ${e.u}: ${e.m}`;
+        speechMsg = `${e.u}さん ${e.m}`;
+    } else if(e.t === "follow") {
+        logMsg = `👤 ${e.u} がフォローしました`;
+        speechMsg = `${e.u}さんフォローありがとう`;
+    } else if(e.t === "gift") {
+        logMsg = `🎁 ${e.u}: ${e.g} x${e.c}`;
+        speechMsg = `${e.u}さん${e.g}ありがとう`;
+    } else if(e.t === "sys") {
+        logMsg = `📢 ${e.m}`;
     }
 
-    if(textForLog) addLog(textForLog);
-    if(textForSpeech) { queue.push(textForSpeech); speak(); }
+    if(logMsg) addLog(logMsg);
+    if(speechMsg && engineOn) {
+        queue.push(speechMsg);
+        speakNext();
+    }
 });
 
-socket.on("up-v", c => document.getElementById("vCount").innerText = c);
+socket.on("up-v", c => {
+    document.getElementById("vCount").innerText = c;
+});
 
-function speak(){
-    if(!engine || talking || queue.length===0) return;
-    talking=true;
-    const u=new SpeechSynthesisUtterance(queue.shift());
-    u.lang='ja-JP'; u.rate=1.2;
-    u.onend=()=>{ talking=false; speak(); };
+// 読み上げ処理
+function speakNext(){
+    if(!engineOn || talking || queue.length === 0) return;
+    talking = true;
+    const u = new SpeechSynthesisUtterance(queue.shift());
+    u.lang = 'ja-JP';
+    u.rate = 1.2;
+    u.onend = () => {
+        talking = false;
+        speakNext();
+    };
     window.speechSynthesis.speak(u);
 }
 
-function addLog(m){
-    const d=document.createElement("div");
-    d.className="log-item";
-    d.innerText=m;
-    // 最新のコメントを一番上に追加
-    logContainer.insertBefore(d, logContainer.firstChild);
+// 🚀 ログを追加する関数
+function addLog(msg) {
+    const div = document.createElement("div");
+    div.className = "log-item";
+    div.innerText = msg;
+    
+    // 一番上に新しいログを追加
+    logArea.insertBefore(div, logArea.firstChild);
+    
+    // ログが溜まりすぎたら古いものを消す（動作を軽くするため）
+    if(logArea.childNodes.length > 50) {
+        logArea.removeChild(logArea.lastChild);
+    }
 }
 </script>
 </body>
