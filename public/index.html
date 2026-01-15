@@ -8,127 +8,99 @@
 <style>
 :root{--bg:#0b0e14;--side:#161920;--card:#1f232d;--accent:#00f2ea;--pink:#ff0050}
 body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden}
-
-/* サイドバー */
 .sidebar{width:60px;min-width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:30px;gap:25px;border-right:1px solid #333}
-.side-icon{font-size:1.5rem;opacity:0.5}
-
-/* メインエリア */
-.main{flex:1;display:flex;flex-direction:column;padding:15px;box-sizing:border-box;overflow:hidden}
-.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.card{background:var(--card);padding:15px;border-radius:12px;margin-bottom:15px;border:1px solid #444}
-
-/* 入力・ボタン */
-input{width:100%;padding:12px;background:#000;border:1px solid #555;color:#fff;border-radius:8px;box-sizing:border-box;font-size:16px;margin-bottom:10px}
-button{width:100%;padding:14px;border-radius:10px;border:none;font-weight:bold;margin-bottom:8px;cursor:pointer}
+.main{flex:1;display:flex;flex-direction:column;padding:15px;overflow:hidden}
+.card{background:var(--card);padding:15px;border-radius:12px;margin-bottom:10px;border:1px solid #444}
+input{width:100%;padding:15px;background:#000;border:1px solid #555;color:#fff;border-radius:8px;box-sizing:border-box;font-size:18px;margin-bottom:10px}
+button{width:100%;padding:16px;border-radius:10px;border:none;font-weight:bold;margin-bottom:10px;font-size:16px}
 .btn-pink{background:var(--pink);color:#fff}
 .btn-blue{background:var(--accent);color:#000}
-
-/* 🚀 ログ表示エリア（ここを強化しました） */
-#log-area{
-    flex:1;
-    overflow-y:auto;
-    display:flex;
-    flex-direction:column; /* 上から順に表示 */
-    gap:8px;
-    background: rgba(255,255,255,0.02); /* デバッグ用に薄く色付け */
-    padding:10px;
-    border-radius:8px;
-}
-.log-item{
-    background:var(--card);
-    padding:10px;
-    border-radius:8px;
-    border-left:4px solid var(--accent);
-    font-size:0.9rem;
-    line-height:1.4;
-    word-break:break-all;
-    color: #fff !important; /* 文字色を強制 */
-}
+#log-area{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:10px;background:rgba(255,255,255,0.02);border-radius:8px}
+.log-item{background:var(--card);padding:12px;border-radius:8px;border-left:4px solid var(--accent);font-size:0.9rem;color:#fff}
 </style>
 </head>
 <body>
 
-<div class="sidebar">
-    <div class="side-icon" style="opacity:1">🏠</div>
-    <div class="side-icon">🎤</div>
-    <div class="side-icon">⚙️</div>
-</div>
+<div class="sidebar"><div style="font-size:1.5rem">🏠</div></div>
 
 <div class="main">
-    <div class="header">
-        <h2 style="margin:0;font-size:1.2rem">Mac Talk <span style="color:var(--accent)">PRO</span></h2>
-        <div style="background:#222;padding:4px 10px;border-radius:15px;font-size:0.75rem">👁️ <span id="vCount">0</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <h2 style="margin:0">Mac Talk <span style="color:var(--accent)">PRO</span></h2>
+        <div style="background:#222;padding:4px 10px;border-radius:15px;font-size:0.8rem">👁️ <span id="vCount">0</span></div>
     </div>
     
     <div class="card">
         <input id="tid" placeholder="TikTok IDを入力">
-        <button class="btn-pink" onclick="initAudio()">1. 読み上げを有効にする</button>
-        <button class="btn-blue" onclick="connect()">2. 保存してライブ接続</button>
+        <button class="btn-pink" onclick="handleStart()">1. 読み上げを有効にする</button>
+        <button class="btn-blue" onclick="handleConnect()">2. 保存してライブ接続</button>
     </div>
 
     <div id="log-area">
-        <div class="log-item" style="border-left-color:#888">ログ待機中...</div>
+        <div class="log-item">システム：待機中...</div>
     </div>
 </div>
 
-<video id="pip" muted loop playsinline style="display:none"><source src="https://raw.githubusercontent.com/Anarios/return-to-fame/master/assets/empty.mp4"></video>
+<audio id="bg-audio" loop playsinline style="display:none">
+    <source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3">
+</audio>
 
 <script>
 const socket = io();
-let engineOn = false;
-let queue = [];
-let talking = false;
+let isEngineOn = false;
+let speechQueue = [];
+let isSpeaking = false;
 const logArea = document.getElementById("log-area");
 
-// 音声エンジンの初期化
-function initAudio(){
-    engineOn = true;
-    const u = new SpeechSynthesisUtterance("読み上げを開始します。");
-    u.lang = 'ja-JP';
-    window.speechSynthesis.speak(u);
-    document.getElementById("pip").play();
-    addLog("📢 システム: 読み上げが有効になりました");
+// 1. 読み上げ有効化ボタン
+function handleStart() {
+    isEngineOn = true;
+    const audio = document.getElementById("bg-audio");
+    
+    // 無音音声を再生（これでコントロールセンターにロゴが出ます）
+    audio.play().then(() => {
+        addLog("✅ システム：バックグラウンド音声開始");
+    }).catch(e => {
+        addLog("❌ エラー：ブラウザが音声をブロックしました");
+    });
+
+    const msg = new SpeechSynthesisUtterance("マックトーク、準備完了しました");
+    msg.lang = 'ja-JP';
+    window.speechSynthesis.speak(msg);
 }
 
-// 接続実行
-function connect(){
+// 2. 接続ボタン
+function handleConnect() {
     const id = document.getElementById("tid").value.trim();
-    if(id){
-        socket.emit("setTarget", id);
-        localStorage.setItem("mtid", id);
-        addLog(`📢 システム: ${id} に接続を試みています...`);
+    if (!id) {
+        alert("IDを入力してください");
+        return;
     }
+    
+    addLog(`⏳ システム：${id} に接続を要求中...`);
+    socket.emit("setTarget", id);
+    localStorage.setItem("mtid", id);
 }
 
-// ページ読み込み時にIDを復元
 window.onload = () => {
-    const savedId = localStorage.getItem("mtid");
-    if(savedId) document.getElementById("tid").value = savedId;
+    const saved = localStorage.getItem("mtid");
+    if(saved) document.getElementById("tid").value = saved;
 };
 
-// サーバーからのイベント受信
+// サーバーからのイベント受信を強化
 socket.on("ev", e => {
-    let logMsg = "";
-    let speechMsg = "";
+    console.log("Recieved:", e); // デバッグ用
+    let l = "";
+    let s = "";
 
-    if(e.t === "chat") {
-        logMsg = `💬 ${e.u}: ${e.m}`;
-        speechMsg = `${e.u}さん ${e.m}`;
-    } else if(e.t === "follow") {
-        logMsg = `👤 ${e.u} がフォローしました`;
-        speechMsg = `${e.u}さんフォローありがとう`;
-    } else if(e.t === "gift") {
-        logMsg = `🎁 ${e.u}: ${e.g} x${e.c}`;
-        speechMsg = `${e.u}さん${e.g}ありがとう`;
-    } else if(e.t === "sys") {
-        logMsg = `📢 ${e.m}`;
-    }
+    if(e.t === "chat") { l = `💬 ${e.u}: ${e.m}`; s = `${e.u}さん、${e.m}`; }
+    if(e.t === "follow") { l = `👤 ${e.u} がフォロー！`; s = `${e.u}さんフォローありがとう`; }
+    if(e.t === "gift") { l = `🎁 ${e.u}: ${e.g} x${e.c}`; s = `${e.u}さん${e.g}ありがとう`; }
+    if(e.t === "sys") { l = `📢 ${e.m}`; }
 
-    if(logMsg) addLog(logMsg);
-    if(speechMsg && engineOn) {
-        queue.push(speechMsg);
-        speakNext();
+    if(l) addLog(l);
+    if(s && isEngineOn) {
+        speechQueue.push(s);
+        processSpeech();
     }
 });
 
@@ -136,33 +108,21 @@ socket.on("up-v", c => {
     document.getElementById("vCount").innerText = c;
 });
 
-// 読み上げ処理
-function speakNext(){
-    if(!engineOn || talking || queue.length === 0) return;
-    talking = true;
-    const u = new SpeechSynthesisUtterance(queue.shift());
+function processSpeech() {
+    if(!isEngineOn || isSpeaking || speechQueue.length === 0) return;
+    isSpeaking = true;
+    const u = new SpeechSynthesisUtterance(speechQueue.shift());
     u.lang = 'ja-JP';
     u.rate = 1.2;
-    u.onend = () => {
-        talking = false;
-        speakNext();
-    };
+    u.onend = () => { isSpeaking = false; processSpeech(); };
     window.speechSynthesis.speak(u);
 }
 
-// 🚀 ログを追加する関数
 function addLog(msg) {
     const div = document.createElement("div");
     div.className = "log-item";
     div.innerText = msg;
-    
-    // 一番上に新しいログを追加
     logArea.insertBefore(div, logArea.firstChild);
-    
-    // ログが溜まりすぎたら古いものを消す（動作を軽くするため）
-    if(logArea.childNodes.length > 50) {
-        logArea.removeChild(logArea.lastChild);
-    }
 }
 </script>
 </body>
