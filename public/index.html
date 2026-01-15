@@ -14,15 +14,17 @@
   --accent:#00f2ea;
   --pink:#ff0050;
 }
+
 body {
   margin:0;
   height:100vh;
+  overflow:hidden;
   display:flex;
   background:var(--bg);
   color:#fff;
   font-family:sans-serif;
-  overflow:hidden;
 }
+
 .sidebar {
   width:60px;
   background:var(--side);
@@ -31,61 +33,98 @@ body {
   align-items:center;
   padding-top:30px;
   gap:35px;
-  border-right:1px solid #333;
 }
+
 .side-btn {
   font-size:1.5rem;
   cursor:pointer;
-  opacity:0.6;
+  opacity:.6;
 }
+
 .main {
   flex:1;
-  padding:15px;
   display:flex;
   flex-direction:column;
+  padding:12px;
   overflow:hidden;
 }
+
 .card {
   background:var(--card);
-  padding:15px;
   border-radius:12px;
+  padding:12px;
   margin-bottom:10px;
-  border:1px solid #444;
 }
+
 input {
   width:100%;
-  padding:15px;
-  font-size:18px;
-  background:#000;
-  color:#fff;
-  border:1px solid #555;
+  padding:14px;
   border-radius:8px;
-  margin-bottom:12px;
-}
-button {
-  width:100%;
-  padding:16px;
+  background:#000;
+  border:1px solid #555;
+  color:#fff;
   font-size:16px;
-  border-radius:10px;
-  border:none;
-  cursor:pointer;
   margin-bottom:10px;
 }
+
+button {
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:10px;
+  font-weight:bold;
+  margin-bottom:8px;
+  cursor:pointer;
+}
+
 .btn-pink { background:var(--pink); color:#fff; }
 .btn-blue { background:var(--accent); color:#000; }
+
+#streamer {
+  display:none;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+#streamer img {
+  width:46px;
+  height:46px;
+  border-radius:50%;
+}
+
+.badge {
+  background:red;
+  padding:2px 6px;
+  border-radius:6px;
+  font-size:0.7rem;
+  margin-left:6px;
+}
+
+#stats {
+  display:flex;
+  gap:12px;
+  font-size:0.8rem;
+  opacity:.9;
+}
 
 #log-area {
   flex:1;
   overflow-y:auto;
+  background:rgba(255,255,255,0.02);
+  border-radius:10px;
+  padding:10px;
   display:flex;
   flex-direction:column;
   gap:8px;
 }
+
 .log-item {
   background:var(--card);
-  padding:12px;
+  padding:10px;
   border-radius:8px;
   border-left:4px solid var(--accent);
+  font-size:0.85rem;
 }
 </style>
 </head>
@@ -94,105 +133,88 @@ button {
 
 <div class="sidebar">
   <div class="side-btn" onclick="location.reload()">🏠</div>
-  <div class="side-btn" onclick="checkStatus('mic')">🎤</div>
-  <div class="side-btn" onclick="checkStatus('sys')">⚙️</div>
+  <div class="side-btn" onclick="status()">🎤</div>
+  <div class="side-btn" onclick="status()">⚙️</div>
 </div>
 
 <div class="main">
 
-  <!-- 🔥 LIVE配信者ヘッダー -->
-  <div id="liveHeader" class="card" style="display:none">
-    <div style="display:flex;gap:12px;align-items:center">
-      <img id="avatar" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent)">
-      <div>
-        <div style="font-weight:bold;font-size:1.1rem">
-          <span id="nickname"></span>
-          <span style="background:#ff0050;color:#fff;font-size:0.7rem;
-            padding:2px 8px;border-radius:10px;margin-left:6px">LIVE</span>
-        </div>
-        <div style="opacity:0.7">@<span id="uid"></span></div>
-        <div style="font-size:0.8rem;opacity:0.8">
-          👥 <span id="followers"></span> ｜ ❤️ <span id="likes"></span>
-        </div>
-      </div>
+<h2>Mac Talk <span style="color:var(--accent)">PRO</span></h2>
+
+<div id="streamer">
+  <img id="avatar">
+  <div>
+    <div><strong id="name"></strong><span class="badge">LIVE</span></div>
+    <div id="stats">
+      <div>👥 <span id="followers">0</span></div>
+      <div>❤️ <span id="likes">0</span></div>
     </div>
   </div>
+</div>
 
-  <div class="card">
-    <input id="tid" placeholder="TikTok ID (@なし)">
-    <button class="btn-pink" onclick="startVoice()">1. 読み上げを有効</button>
-    <button class="btn-blue" onclick="connect()">2. 保存してライブ接続</button>
-  </div>
+<div class="card">
+  <input id="tid" placeholder="TikTok ID (@なし)">
+  <button class="btn-pink" onclick="startVoice()">1. 読み上げON</button>
+  <button class="btn-blue" onclick="connect()">2. 接続</button>
+</div>
 
-  <div id="log-area">
-    <div class="log-item">ログ待機中...</div>
-  </div>
+<div id="log-area">
+  <div class="log-item">ログ待機中...</div>
+</div>
 
 </div>
 
-<audio id="silent" loop playsinline
-src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3"></audio>
-
 <script>
 const socket = io();
-let engineOn=false, talking=false, queue=[];
-let timer=null, sec=0, currentLog=null;
+let voiceOn=false, talking=false, queue=[];
 
-function addLog(msg, update=false){
-  const area=document.getElementById("log-area");
-  if(update && currentLog){ currentLog.innerText=msg; return; }
+function log(m){
   const d=document.createElement("div");
-  d.className="log-item"; d.innerText=msg;
-  area.insertBefore(d, area.firstChild);
-  currentLog=d;
+  d.className="log-item";
+  d.innerText=m;
+  document.getElementById("log-area").prepend(d);
 }
 
 function startVoice(){
-  engineOn=true;
-  document.getElementById("silent").play();
-  const u=new SpeechSynthesisUtterance("読み上げを開始します");
-  u.lang="ja-JP"; speechSynthesis.speak(u);
-  addLog("✅ 音声エンジン起動");
+  voiceOn=true;
+  log("🎤 読み上げON");
 }
 
 function connect(){
-  const id=document.getElementById("tid").value.replace("@","").trim();
+  const id=document.getElementById("tid").value.trim();
   if(!id) return alert("IDを入力");
-  sec=0;
-  if(timer) clearInterval(timer);
-  addLog("⏳ 接続試行中... 0.0秒");
-  timer=setInterval(()=>{
-    sec+=0.1;
-    addLog(`⏳ 接続試行中... ${sec.toFixed(1)}秒`, true);
-  },100);
-  socket.emit("setTarget",id);
+  socket.emit("setTarget", id.replace("@",""));
+  log("⏳ 接続中...");
 }
 
-socket.on("ev",e=>{
-  if(e.t==="profile"){
-    document.getElementById("liveHeader").style.display="block";
-    avatar.src=e.avatar;
-    nickname.innerText=e.nickname;
-    uid.innerText=e.uid;
-    followers.innerText=e.followers.toLocaleString();
-    likes.innerText=e.likes.toLocaleString();
-  }
-  if(e.t==="sys"){
-    clearInterval(timer);
-    addLog(`📢 ${e.m} (${sec.toFixed(1)}秒)`);
-  }
-  if(e.t==="chat"){
-    addLog(`💬 ${e.u}: ${e.m}`);
-    if(engineOn){ queue.push(`${e.u}さん ${e.m}`); talk(); }
-  }
+socket.on("streamer", d=>{
+  document.getElementById("streamer").style.display="flex";
+  avatar.src=d.avatar;
+  name.innerText=d.nickname+" (@"+d.uniqueId+")";
+  followers.innerText=d.followers;
+  likes.innerText=d.likes;
 });
 
-function talk(){
-  if(!engineOn||talking||!queue.length) return;
+socket.on("up-follow", n=>followers.innerText=n);
+socket.on("up-like", n=>likes.innerText=n);
+
+socket.on("ev", e=>{
+  if(e.t==="chat"){
+    log("💬 "+e.u+": "+e.m);
+    speak(e.u+"さん "+e.m);
+  }
+  if(e.t==="follow") log("👤 "+e.u+" フォロー！");
+  if(e.t==="sys") log(e.m);
+});
+
+function speak(t){
+  if(!voiceOn) return;
+  queue.push(t);
+  if(talking) return;
   talking=true;
   const u=new SpeechSynthesisUtterance(queue.shift());
-  u.lang="ja-JP"; u.rate=1.2;
-  u.onend=()=>{ talking=false; talk(); };
+  u.lang="ja-JP";
+  u.onend=()=>{ talking=false; if(queue.length) speak(queue.shift()); };
   speechSynthesis.speak(u);
 }
 </script>
