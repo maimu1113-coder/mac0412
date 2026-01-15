@@ -56,18 +56,28 @@ function addLog(msg) {
     area.insertBefore(d, area.firstChild);
 }
 
-// サイドボタンの関数
 function checkMic() { addLog("🎤 読み上げ状態: " + (isEngineOn ? "有効" : "無効")); }
-function showSettings() { addLog("⚙️ 設定: 自動再接続・日本語音声"); }
+function showSettings() { addLog("⚙️ 設定: 自動再接続・高優先度モード"); }
 
+// 1. 読み上げ有効化（ロゴ表示とバックグラウンド維持）
 function clickStart() {
     isEngineOn = true;
-    document.getElementById("silent-audio").play();
-    var ut = new SpeechSynthesisUtterance("読み上げを開始します");
-    ut.lang = 'ja-JP'; window.speechSynthesis.speak(ut);
-    addLog("✅ システム：音声エンジン起動");
+    var audio = document.getElementById("silent-audio");
+    
+    // iPhoneに再生を強制認識させる
+    audio.play().then(function() {
+        addLog("✅ システム：音声エンジン起動（ロゴ確認可）");
+    });
+    
+    var ut = new SpeechSynthesisUtterance("マックトーク、読み上げを開始します。");
+    ut.lang = 'ja-JP';
+    window.speechSynthesis.speak(ut);
+
+    document.getElementById("b1").innerText = "読み上げ有効中";
+    document.getElementById("b1").style.opacity = "0.7";
 }
 
+// 2. 接続要求
 function clickConnect() {
     var id = document.getElementById("tid").value.replace("@", "").trim();
     if(!id) { alert("IDを入力してください"); return; }
