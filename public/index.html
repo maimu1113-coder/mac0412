@@ -5,124 +5,197 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <title>Mac Talk PRO</title>
 <script src="/socket.io/socket.io.js"></script>
+
 <style>
-:root{--bg:#0b0e14;--side:#161920;--card:#1f232d;--accent:#00f2ea;--pink:#ff0050}
-body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden}
-.sidebar{width:60px;min-width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:30px;gap:35px;border-right:1px solid #333}
-.side-btn{font-size:1.5rem;cursor:pointer;opacity:0.6}
-.main{flex:1;display:flex;flex-direction:column;padding:15px;overflow:hidden}
-.card{background:var(--card);padding:15px;border-radius:12px;margin-bottom:10px;border:1px solid #444}
-input{width:100%;padding:15px;background:#000;border:1px solid #555;color:#fff;border-radius:8px;box-sizing:border-box;font-size:18px;margin-bottom:12px}
-button{width:100%;padding:16px;border-radius:10px;border:none;font-weight:bold;margin-bottom:10px;font-size:16px;cursor:pointer}
-.btn-pink{background:var(--pink);color:#fff}
-.btn-blue{background:var(--accent);color:#000}
-#log-area{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:10px;background:rgba(255,255,255,0.02);border-radius:8px}
-.log-item{background:var(--card);padding:12px;border-radius:8px;border-left:4px solid var(--accent);font-size:0.9rem;color:#fff}
+:root {
+  --bg:#0b0e14;
+  --side:#161920;
+  --card:#1f232d;
+  --accent:#00f2ea;
+  --pink:#ff0050;
+}
+body {
+  margin:0;
+  height:100vh;
+  display:flex;
+  background:var(--bg);
+  color:#fff;
+  font-family:sans-serif;
+  overflow:hidden;
+}
+.sidebar {
+  width:60px;
+  background:var(--side);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding-top:30px;
+  gap:35px;
+  border-right:1px solid #333;
+}
+.side-btn {
+  font-size:1.5rem;
+  cursor:pointer;
+  opacity:0.6;
+}
+.main {
+  flex:1;
+  padding:15px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.card {
+  background:var(--card);
+  padding:15px;
+  border-radius:12px;
+  margin-bottom:10px;
+  border:1px solid #444;
+}
+input {
+  width:100%;
+  padding:15px;
+  font-size:18px;
+  background:#000;
+  color:#fff;
+  border:1px solid #555;
+  border-radius:8px;
+  margin-bottom:12px;
+}
+button {
+  width:100%;
+  padding:16px;
+  font-size:16px;
+  border-radius:10px;
+  border:none;
+  cursor:pointer;
+  margin-bottom:10px;
+}
+.btn-pink { background:var(--pink); color:#fff; }
+.btn-blue { background:var(--accent); color:#000; }
+
+#log-area {
+  flex:1;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.log-item {
+  background:var(--card);
+  padding:12px;
+  border-radius:8px;
+  border-left:4px solid var(--accent);
+}
 </style>
 </head>
+
 <body>
 
 <div class="sidebar">
-    <div class="side-btn" onclick="location.reload()">🏠</div>
-    <div class="side-btn" onclick="checkStat('mic')">🎤</div>
-    <div class="side-btn" onclick="checkStat('sys')">⚙️</div>
+  <div class="side-btn" onclick="location.reload()">🏠</div>
+  <div class="side-btn" onclick="checkStatus('mic')">🎤</div>
+  <div class="side-btn" onclick="checkStatus('sys')">⚙️</div>
 </div>
 
 <div class="main">
-    <div style="display:flex;justify-content:space-between;margin-bottom:10px">
-        <h2 style="margin:0">Mac Talk <span style="color:var(--accent)">PRO</span></h2>
-        <div style="background:#222;padding:4px 10px;border-radius:15px;font-size:0.8rem">👁️ <span id="vCount">0</span></div>
+
+  <!-- 🔥 LIVE配信者ヘッダー -->
+  <div id="liveHeader" class="card" style="display:none">
+    <div style="display:flex;gap:12px;align-items:center">
+      <img id="avatar" style="width:64px;height:64px;border-radius:50%;border:2px solid var(--accent)">
+      <div>
+        <div style="font-weight:bold;font-size:1.1rem">
+          <span id="nickname"></span>
+          <span style="background:#ff0050;color:#fff;font-size:0.7rem;
+            padding:2px 8px;border-radius:10px;margin-left:6px">LIVE</span>
+        </div>
+        <div style="opacity:0.7">@<span id="uid"></span></div>
+        <div style="font-size:0.8rem;opacity:0.8">
+          👥 <span id="followers"></span> ｜ ❤️ <span id="likes"></span>
+        </div>
+      </div>
     </div>
-    <div class="card">
-        <input id="tid" type="text" placeholder="TikTok ID (@なし)">
-        <button id="b1" class="btn-pink" onclick="clickStart()">1. 読み上げを有効にする</button>
-        <button id="b2" class="btn-blue" onclick="clickConnect()">2. 保存してライブ接続</button>
-    </div>
-    <div id="log-area"><div class="log-item">ログ待機中...</div></div>
+  </div>
+
+  <div class="card">
+    <input id="tid" placeholder="TikTok ID (@なし)">
+    <button class="btn-pink" onclick="startVoice()">1. 読み上げを有効</button>
+    <button class="btn-blue" onclick="connect()">2. 保存してライブ接続</button>
+  </div>
+
+  <div id="log-area">
+    <div class="log-item">ログ待機中...</div>
+  </div>
+
 </div>
 
-<audio id="silent-audio" loop playsinline src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3"></audio>
+<audio id="silent" loop playsinline
+src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3"></audio>
 
 <script>
-var socket = io();
-var isEngineOn = false;
-var queue = [];
-var isTalking = false;
-var connectTimer = null;
-var seconds = 0;
-var currentLog = null;
+const socket = io();
+let engineOn=false, talking=false, queue=[];
+let timer=null, sec=0, currentLog=null;
 
-function addLog(msg, update = false) {
-    var area = document.getElementById("log-area");
-    if (update && currentLog) {
-        currentLog.innerText = msg;
-        return currentLog;
-    }
-    var d = document.createElement("div");
-    d.className = "log-item";
-    d.innerText = msg;
-    area.insertBefore(d, area.firstChild);
-    return d;
+function addLog(msg, update=false){
+  const area=document.getElementById("log-area");
+  if(update && currentLog){ currentLog.innerText=msg; return; }
+  const d=document.createElement("div");
+  d.className="log-item"; d.innerText=msg;
+  area.insertBefore(d, area.firstChild);
+  currentLog=d;
 }
 
-// 🎤と⚙️の機能
-function checkStat(mode) {
-    if(mode === 'mic') addLog("🎤 読み上げ状態: " + (isEngineOn ? "有効" : "無効"));
-    else addLog("⚙️ システム状態: 正常稼働中 / 計測経過: " + seconds.toFixed(1) + "s");
+function startVoice(){
+  engineOn=true;
+  document.getElementById("silent").play();
+  const u=new SpeechSynthesisUtterance("読み上げを開始します");
+  u.lang="ja-JP"; speechSynthesis.speak(u);
+  addLog("✅ 音声エンジン起動");
 }
 
-function clickStart() {
-    isEngineOn = true;
-    document.getElementById("silent-audio").play();
-    var ut = new SpeechSynthesisUtterance("読み上げを開始します");
-    ut.lang = 'ja-JP'; window.speechSynthesis.speak(ut);
-    addLog("✅ システム：音声エンジン起動");
-    document.getElementById("b1").innerText = "読み上げ有効中";
+function connect(){
+  const id=document.getElementById("tid").value.replace("@","").trim();
+  if(!id) return alert("IDを入力");
+  sec=0;
+  if(timer) clearInterval(timer);
+  addLog("⏳ 接続試行中... 0.0秒");
+  timer=setInterval(()=>{
+    sec+=0.1;
+    addLog(`⏳ 接続試行中... ${sec.toFixed(1)}秒`, true);
+  },100);
+  socket.emit("setTarget",id);
 }
 
-function clickConnect() {
-    var id = document.getElementById("tid").value.replace("@", "").trim();
-    if(!id) { alert("IDを入力してください"); return; }
-    
-    seconds = 0;
-    if(connectTimer) clearInterval(connectTimer);
-    currentLog = addLog("⏳ 接続要求中... 0.0秒経過");
-    
-    // 0.1秒ごとに秒数を更新
-    connectTimer = setInterval(function() {
-        seconds += 0.1;
-        addLog("⏳ 接続要求中... " + seconds.toFixed(1) + "秒経過", true);
-    }, 100);
-    
-    socket.emit("setTarget", id);
-    localStorage.setItem("mtid", id);
-}
-
-socket.on("ev", function(e) {
-    if(e.t === "sys") {
-        clearInterval(connectTimer); // 成功/失敗が来たらタイマー停止
-        addLog("📢 " + e.m + " (" + seconds.toFixed(1) + "秒)");
-    }
-    var s = "";
-    if(e.t === "chat") { s = e.u + "さん " + e.m; addLog("💬 " + e.u + ": " + e.m); }
-    if(e.t === "follow") { s = e.u + "さんフォローありがとう"; addLog("👤 " + e.u + " Follow!"); }
-    if(e.t === "gift") { s = e.u + "さん" + e.g + "ありがとう"; addLog("🎁 " + e.u + ": " + e.g + " x" + e.c); }
-    if(s && isEngineOn) { queue.push(s); talk(); }
+socket.on("ev",e=>{
+  if(e.t==="profile"){
+    document.getElementById("liveHeader").style.display="block";
+    avatar.src=e.avatar;
+    nickname.innerText=e.nickname;
+    uid.innerText=e.uid;
+    followers.innerText=e.followers.toLocaleString();
+    likes.innerText=e.likes.toLocaleString();
+  }
+  if(e.t==="sys"){
+    clearInterval(timer);
+    addLog(`📢 ${e.m} (${sec.toFixed(1)}秒)`);
+  }
+  if(e.t==="chat"){
+    addLog(`💬 ${e.u}: ${e.m}`);
+    if(engineOn){ queue.push(`${e.u}さん ${e.m}`); talk(); }
+  }
 });
 
-function talk() {
-    if(!isEngineOn || isTalking || queue.length === 0) return;
-    isTalking = true;
-    var u = new SpeechSynthesisUtterance(queue.shift());
-    u.lang = 'ja-JP'; u.rate = 1.2;
-    u.onend = function() { isTalking = false; talk(); };
-    window.speechSynthesis.speak(u);
+function talk(){
+  if(!engineOn||talking||!queue.length) return;
+  talking=true;
+  const u=new SpeechSynthesisUtterance(queue.shift());
+  u.lang="ja-JP"; u.rate=1.2;
+  u.onend=()=>{ talking=false; talk(); };
+  speechSynthesis.speak(u);
 }
-
-window.onload = function() {
-    var saved = localStorage.getItem("mtid");
-    if(saved) document.getElementById("tid").value = saved;
-};
 </script>
+
 </body>
 </html>
