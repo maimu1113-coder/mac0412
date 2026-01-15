@@ -18,10 +18,9 @@ io.on('connection', (socket) => {
         tiktok.connect().then(state => {
             io.emit('ready', {
                 name: state.roomInfo.owner.nickname,
-                icon: state.roomInfo.owner.avatar_thumb.url_list[0],
-                viewers: state.viewerCount
+                icon: state.roomInfo.owner.avatar_thumb.url_list[0]
             });
-        }).catch(() => socket.emit('log', {m:'接続エラー', c:'#ff0050'}));
+        }).catch(() => socket.emit('log', {m:'接続エラー：ライブ中か確認してください', c:'#ff0050'}));
 
         tiktok.on('chat', d => io.emit('ev', {t:'chat', u:d.nickname, m:d.comment}));
         tiktok.on('gift', d => io.emit('ev', {t:'gift', u:d.nickname, g:d.giftName, n:d.repeatCount}));
@@ -31,4 +30,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log('TikFinity UI Live'));
+server.listen(PORT, () => console.log('Mac Talk PRO Server Live'));
