@@ -18,56 +18,44 @@ io.on("connection", (socket) => {
     }
 
     tiktokConn = new WebcastPushConnection(targetId, {
-      processInitialData: false,
+      processInitialData: true,
       enableExtendedGiftInfo: true,
-      requestPollingIntervalMs: 2000,
-      clientParams: { device_platform: "web", aid: 1988 }
+      requestPollingIntervalMs: 2000
     });
 
     try {
-      await tiktokConn.connect();
-
-      const info = tiktokConn.roomInfo;
-
-      // 🔥 配信者プロフィール（LIVE情報）送信
-      io.emit("ev", {
-        t: "profile",
-        nickname: info.owner.nickname,
-        uid: info.owner.uniqueId,
-        avatar: info.owner.profilePicture.urls[0],
-        followers: info.stats.followers,
-        likes: info.stats.totalLikes
-      });
+      const state = await tiktokConn.connect();
 
       io.emit("ev", { t: "sys", m: "✅ TikTok接続成功！" });
+
+      // 🔴 配信者情報送信
+      io.emit("streamer", {
+        nickname: state.roomInfo.owner.nickname,
+        uniqueId: state.roomInfo.owner.uniqueId,
+        avatar: state.roomInfo.owner.avatarThumb?.url_list?.[0] || "",
+        followers: state.roomInfo.owner.followers || 0,
+        likes: state.roomInfo.likeCount || 0
+      });
 
     } catch (e) {
       io.emit("ev", { t: "sys", m: "❌ 接続失敗（配信中か確認）" });
       return;
     }
 
-    tiktokConn.on("chat", d =>
-      io.emit("ev", { t: "chat", u: d.nickname, m: d.comment })
-    );
+    tiktokConn.on("chat", d => {
+      io.emit("ev", { t: "chat", u: d.nickname, m: d.comment });
+    });
 
-    tiktokConn.on("gift", d =>
-      io.emit("ev", {
-        t: "gift",
-        u: d.nickname,
-        g: d.giftName,
-        c: d.repeatCount || 1
-      })
-    );
-
-    tiktokConn.on("social", d => {
-      if (d.displayType && d.displayType.includes("follow")) {
-        io.emit("ev", { t: "follow", u: d.nickname });
+    tiktokConn.on("follow", d => {
+      io.emit("ev", { t: "follow", u: d.nickname });
+      if (d.followInfo?.followerCount) {
+        io.emit("up-follow", d.followInfo.followerCount);
       }
     });
 
-    tiktokConn.on("roomUser", d =>
-      io.emit("up-v", d.viewerCount)
-    );
+    tiktokConn.on("roomUser", d => {
+      io.emit("up-like", d.totalLikeCount);
+    });
   });
 
   socket.on("disconnect", () => {
