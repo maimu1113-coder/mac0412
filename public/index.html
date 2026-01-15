@@ -3,165 +3,139 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Mac Talk PRO STABLE</title>
+<title>TikFinity PRO UI</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-:root{--primary:#00f2ea;--secondary:#ff0050;--bg:#0d0d0d;--card:#1a1a1a}
-body{font-family:-apple-system,sans-serif;background:var(--bg);color:#fff;margin:0;padding:env(safe-area-inset-top) 15px 20px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-.mactalk-logo{text-align:center;font-size:2.8rem;font-weight:900;background:linear-gradient(90deg,#fff,var(--primary),#fff);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shine 3s linear infinite;margin-top:40px}
-@keyframes shine{to{background-position:200% center}}
-.voice-btn{background:var(--secondary);border:none;padding:16px;border-radius:12px;color:#fff;font-weight:bold;margin-bottom:15px;box-shadow:0 4px 15px rgba(255,0,80,0.3)}
-.voice-btn.active{background:#333;color:#888;box-shadow:none}
-.input-group{display:flex;gap:8px;margin-bottom:15px}
-input{flex:1;background:var(--card);border:1px solid #333;padding:15px;border-radius:12px;color:#fff;outline:none}
-.connect-btn{background:var(--primary);border:none;padding:0 25px;border-radius:12px;font-weight:bold;color:#000}
-.stats-panel{background:#161616;border-radius:18px;padding:15px;display:flex;gap:12px;border:1px solid #333;margin-bottom:10px}
-#avatar{width:65px;height:65px;border-radius:50%;border:2px solid var(--primary);object-fit:cover;background:#222}
-#chats{flex:1;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:10px}
-.chat-card{background:var(--card);padding:14px;border-radius:15px;border-left:5px solid var(--primary);animation:fadeIn 0.3s ease}
-.gift-card{background:linear-gradient(45deg, #441111, #1a1a1a);border-left:5px solid var(--secondary)}
-@keyframes fadeIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+:root{--bg:#0b0e14;--side:#161920;--card:#1f232d;--accent:#00f2ea;--pink:#ff0050}
+body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden}
+
+/* 左側サイドメニュー（画像のアイコン並びを再現） */
+.sidebar{width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:40px;gap:25px;border-right:1px solid #2d323e}
+.side-icon{width:30px;height:30px;opacity:0.5;transition:0.3s}
+.side-icon.active{opacity:1;filter:drop-shadow(0 0 5px var(--accent))}
+
+/* メインコンテンツエリア */
+.main-content{flex:1;display:flex;flex-direction:column;padding:20px;box-sizing:border-box;position:relative}
+
+/* 設定パネル（オーバーレイ） */
+#settingsOverlay{position:absolute;top:0;left:0;width:100%;height:100%;background:var(--bg);z-index:10;display:none;padding:20px;box-sizing:border-box;overflow-y:auto}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* 設定カード */
+.card{background:var(--card);border-radius:12px;padding:15px;margin-bottom:15px;border:1px solid #333}
+.label{font-size:0.7rem;color:var(--accent);text-transform:uppercase;margin-bottom:8px;display:block}
+input, select, textarea{width:100%;background:#0b0e14;border:1px solid #444;color:#fff;padding:10px;border-radius:8px;box-sizing:border-box}
+
+/* ログエリア */
+#eventLog{flex:1;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:10px}
+.log-card{background:var(--card);padding:12px;border-radius:10px;font-size:0.8rem;border-left:4px solid #444}
+
+.btn-save{background:var(--accent);color:#000;border:none;padding:15px;width:100%;border-radius:10px;font-weight:bold;margin-top:10px}
+.header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
 </style>
 </head>
-
 <body>
-<video id="pipVideo" playsinline muted loop style="position:fixed;width:1px;height:1px;opacity:0"><source src="https://raw.githubusercontent.com/Anarios/return-to-fame/master/assets/empty.mp4"></video>
-<audio id="bgTracker" loop playsinline src="https://github.com/anars/blank-audio/raw/master/10-minutes-of-silence.mp3"></audio>
 
-<div class="mactalk-logo">Mac Talk</div>
-<button id="voiceInit" class="voice-btn">⚡ SYSTEM START</button>
-
-<div class="input-group">
-    <input id="userId" placeholder="TikTok ID (@なし)">
-    <button class="connect-btn" onclick="connect()">接続</button>
+<div class="sidebar">
+    <div onclick="showTab('main')" class="side-icon active">🏠</div>
+    <div onclick="showTab('tts')" class="side-icon">🎤</div>
+    <div onclick="showTab('events')" class="side-icon">⚡</div>
+    <div onclick="toggleSettings()" class="side-icon">⚙️</div>
 </div>
 
-<div class="stats-panel">
-    <img id="avatar" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
-    <div>
-        <div id="hostName" style="font-weight:bold;font-size:1.1rem">未接続</div>
-        <div style="font-size:0.75rem;color:#777">フォロワー <span id="followers">0</span> / 視聴者 <span id="currentView">0</span></div>
+<div class="main-content">
+    <div class="header-row">
+        <div style="font-weight:900;font-size:1.2rem">Tik<span style="color:var(--pink)">Finity</span></div>
+        <div id="v-badge" style="background:#222;padding:4px 8px;border-radius:5px;font-size:0.7rem">👁️ <span id="viewCount">0</span></div>
+    </div>
+
+    <div id="eventLog"></div>
+
+    <div id="settingsOverlay">
+        <div class="header-row">
+            <h2 id="tabTitle">Settings</h2>
+            <button onclick="toggleSettings()" style="background:none;border:none;color:#888">CLOSE</button>
+        </div>
+
+        <div id="tab-main" class="tab-content active">
+            <div class="card"><label class="label">TikTok ID</label><input type="text" id="targetId" placeholder="@lxxchipxxl"></div>
+            <div class="card">
+                <label class="label">Voice Speed</label>
+                <input type="range" id="v-speed" min="0.5" max="2.0" step="0.1" value="1.2">
+            </div>
+            <button class="btn-save" onclick="apply()">SAVE & CONNECT</button>
+        </div>
+
+        <div id="tab-tts" class="tab-content">
+            <div class="card"><label class="label">Pitch (声の高さ)</label><input type="range" id="v-pitch" min="0.5" max="2.0" step="0.1" value="1.0"></div>
+            <div class="card"><label class="label">Voice Type</label><select id="voiceSelect"></select></div>
+        </div>
+
+        <div id="tab-events" class="tab-content">
+            <div class="card"><label class="label">Follow Message</label><textarea id="m-follow">{user}さんフォローありがとう！</textarea></div>
+            <div class="card"><label class="label">Gift Message</label><textarea id="m-gift">{user}さん{gift}ありがとう！</textarea></div>
+        </div>
     </div>
 </div>
 
-<div id="chats"></div>
+<video id="pip" playsinline muted loop style="display:none"><source src="https://raw.githubusercontent.com/Anarios/return-to-fame/master/assets/empty.mp4"></video>
 
 <script>
 const socket=io();
-let voiceEnabled=false, speechQueue=[], isSpeaking=false, audioCtx;
-let currentSpeed = 1.2;
+let engineActive=false, voices=[];
 
-// --- ローカル話題リスト ---
-const AI_TOPICS=[
-    "皆さんの今日のラッキーアイテムは何ですか？",
-    "最近ハマっている動画とかあれば教えてください！",
-    "初見さんも大歓迎です、ゆっくりしていってくださいね。",
-    "もしよければ、フォローといいねお願いします！",
-    "この時間、皆さん何して過ごしてますか？",
-    "今日の晩御飯、何食べたか教えてください。"
-];
-
-let lastChatTime=Date.now();
-let lastAiTalkTime=0;
-const SILENT_TRIGGER_MS=60000; // 1分無言で話題振り
-const AI_COOLDOWN_MS=180000;  // 3分に1回まで
-
-// --- iPhone生存維持 ---
-async function keepAlive(){
-    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended') await audioCtx.resume();
-    const o=audioCtx.createOscillator();
-    const g=audioCtx.createGain();
-    g.gain.value=0.0001; o.connect(g); g.connect(audioCtx.destination);
-    o.start(); o.stop(audioCtx.currentTime+0.1);
+function toggleSettings(){
+    const s = document.getElementById('settingsOverlay');
+    s.style.display = s.style.display === 'block' ? 'none' : 'block';
 }
 
-// --- システム起動 ---
-voiceInit.onclick=async()=>{
-    voiceEnabled=true;
-    voiceInit.classList.add('active');
-    voiceInit.textContent="⚡ MONITORING...";
-    await pipVideo.play();
-    await bgTracker.play();
-    setInterval(keepAlive, 1000);
-    speak("安定化システム起動。音声モニター開始しました。");
-};
-
-function connect(){
-    if(!userId.value) return;
-    chats.innerHTML="";
-    socket.emit('setTargetUser', userId.value);
+function showTab(name){
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    document.getElementById('tab-'+name).classList.add('active');
+    document.getElementById('tabTitle').innerText = name.toUpperCase();
 }
 
-// --- イベント受信 ---
-socket.on('roomInfo',d=>{
-    avatar.src=d.avatar||avatar.src;
-    hostName.textContent=d.nickname;
-    followers.textContent=d.followerCount.toLocaleString();
-    currentView.textContent=d.viewerCount.toLocaleString();
-    speak(d.nickname + "に接続成功。");
+function apply(){
+    const id = document.getElementById('targetId').value;
+    if(id) socket.emit('setTarget', id);
+    engineActive=true;
+    document.getElementById('pip').play();
+    toggleSettings();
+}
+
+// 音声リスト取得
+function getVoices(){
+    voices = window.speechSynthesis.getVoices().filter(v=>v.lang.includes('ja'));
+    const s = document.getElementById('voiceSelect');
+    s.innerHTML = voices.map((v,i)=>`<option value="${i}">${v.name}</option>`).join('');
+}
+window.speechSynthesis.onvoiceschanged = getVoices; getVoices();
+
+socket.on('ev', e => {
+    let msg = "";
+    if(e.t==='chat') { msg = `${e.u}さん：${e.m}`; addLog('💬 '+msg, var(--accent)); }
+    if(e.t==='follow') { msg = document.getElementById('m-follow').value.replace('{user}', e.u); addLog('👤 '+e.u+' Followed', '#ffeb3b'); }
+    if(e.t==='gift') { msg = document.getElementById('m-gift').value.replace('{user}',e.u).replace('{gift}',e.g); addLog('🎁 '+e.u+' sent '+e.g, var(--pink)); }
+    if(engineActive) speak(msg);
 });
 
-socket.on('viewerUpdate',d=>{ currentView.textContent=d.viewerCount.toLocaleString(); });
+socket.on('up-v', c => document.getElementById('viewCount').innerText = c);
 
-socket.on('chat',d=>{
-    lastChatTime=Date.now();
-    
-    // 管理者コマンド判定 (!stop, !start, !speed 1.5)
-    if(d.comment.startsWith('!')){
-        if(d.comment==='!stop') { voiceEnabled=false; speak("停止します"); return; }
-        if(d.comment==='!start') { voiceEnabled=true; speak("再開します"); return; }
-        if(d.comment.startsWith('!speed')){
-            let s = parseFloat(d.comment.split(' ')[1]);
-            if(s >= 0.5 && s <= 2.0) { currentSpeed = s; speak("速度を"+s+"に変更"); }
-            return;
-        }
-    }
+function addLog(m, c){
+    const d=document.createElement('div'); d.className='log-card';
+    d.style.borderLeftColor=c; d.innerHTML=m;
+    document.getElementById('eventLog').prepend(d);
+}
 
-    const c=document.createElement('div');
-    c.className='chat-card';
-    c.innerHTML=`<b style="color:var(--primary)">@${d.nickname}</b><br>${d.comment}`;
-    chats.prepend(c);
-
-    if(voiceEnabled){
-        const cleanName = d.nickname.replace(/[^\w一-龠ぁ-んァ-ン]/g,'');
-        speak(cleanName + "さん、" + d.comment);
-    }
-});
-
-socket.on('gift',d=>{
-    const c=document.createElement('div');
-    c.className='chat-card gift-card';
-    c.innerHTML=`<b style="color:var(--secondary)">🎁 ${d.nickname}</b><br>${d.giftName} x ${d.repeatCount}`;
-    chats.prepend(c);
-    speak(d.nickname + "さん、" + d.giftName + "ありがとう！");
-});
-
-// --- 無言時の話題振り ---
-setInterval(()=>{
-    if(!voiceEnabled || isSpeaking) return;
-    const now = Date.now();
-    if(now - lastChatTime < SILENT_TRIGGER_MS) return;
-    if(now - lastAiTalkTime < AI_COOLDOWN_MS) return;
-
-    lastAiTalkTime = now;
-    const topic = AI_TOPICS[Math.floor(Math.random()*AI_TOPICS.length)];
-    speak(topic);
-}, 5000);
-
-// --- 読み上げコア ---
 function speak(t){
-    if(!voiceEnabled) return;
+    if(!engineActive) return;
     const u=new SpeechSynthesisUtterance(t);
-    u.lang='ja-JP'; u.rate=currentSpeed;
-    u.onend=()=>{ isSpeaking=false; process(); };
-    speechQueue.push(u);
-    if(!isSpeaking) process();
-}
-function process(){
-    if(!speechQueue.length) return;
-    isSpeaking=true;
-    window.speechSynthesis.speak(speechQueue.shift());
+    const vIdx = document.getElementById('voiceSelect').value;
+    if(voices[vIdx]) u.voice = voices[vIdx];
+    u.rate = parseFloat(document.getElementById('v-speed').value);
+    u.pitch = parseFloat(document.getElementById('v-pitch').value);
+    window.speechSynthesis.speak(u);
 }
 </script>
 </body>
