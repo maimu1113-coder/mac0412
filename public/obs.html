@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Mac Talk PRO - OBS Subtitle</title>
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+}
+
+#subtitle {
+    position: absolute;
+    left: 30px;
+    bottom: 40px;
+
+    max-width: 90%;
+    padding: 12px 24px;
+
+    font-size: 40px;
+    font-weight: 900;
+    color: #ffffff;
+
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 14px;
+
+    text-shadow:
+        2px 2px 0 #000,
+        -2px 2px 0 #000,
+        2px -2px 0 #000,
+        -2px -2px 0 #000;
+
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+#subtitle.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+</style>
+</head>
+
+<body>
+<div id="subtitle"></div>
+
+<script>
+const socket = io();
+const subtitle = document.getElementById("subtitle");
+let hideTimer = null;
+
+socket.on("ev", e => {
+    let text = "";
+
+    if (e.t === "chat") {
+        text = `${e.u}：${e.m}`;
+    }
+
+    if (e.t === "follow") {
+        text = `👤 ${e.u} フォロー！`;
+    }
+
+    if (e.t === "gift") {
+        text = `🎁 ${e.u} ${e.g}`;
+    }
+
+    if (!text) return;
+
+    subtitle.innerText = text;
+    subtitle.classList.add("show");
+
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+        subtitle.classList.remove("show");
+    }, 5000);
+});
+</script>
+</body>
+</html>
