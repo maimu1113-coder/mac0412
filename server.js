@@ -1,33 +1,74 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const { WebcastPushConnection } = require('tiktok-live-connector');
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const { WebcastPushConnection } = require("tiktok-live-connector");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static('public'));
+app.use(express.static("public"));
 
-let tiktok = null;
+io.on("connection", socket => {
+  let conn = null;
 
-io.on('connection', (socket) => {
-    socket.on('setTarget', (id) => {
-        if (tiktok) tiktok.disconnect();
-        tiktok = new WebcastPushConnection(id);
-        tiktok.connect().then(state => {
-            io.emit('ready', {
-                name: state.roomInfo.owner.nickname,
-                icon: state.roomInfo.owner.avatar_thumb.url_list[0]
-            });
-        }).catch(() => socket.emit('log', {m:'接続エラー：ライブ中か確認してください', c:'#ff0050'}));
+  async function connectTikTok(id){
+    if(conn){
+      try{ conn.disconnect(); }catch(e){}
+    }
 
-        tiktok.on('chat', d => io.emit('ev', {t:'chat', u:d.nickname, m:d.comment}));
-        tiktok.on('gift', d => io.emit('ev', {t:'gift', u:d.nickname, g:d.giftName, n:d.repeatCount}));
-        tiktok.on('follow', d => io.emit('ev', {t:'follow', u:d.nickname}));
-        tiktok.on('roomUser', d => io.emit('up-v', d.viewerCount));
+    conn = new WebcastPushConnection(id, {
+      processInitialData: false,
+      enableExtendedGiftInfo: true,
+      requestPollingIntervalMs: 2000
     });
+
+    try {
+      await conn.connect();
+      io.emit("ev", { t:"sys", m:"✅ TikTok接続成功" });
+    } catch(e) {
+      io.emit("ev", { t:"sys", m:"❌ 接続失敗（配信中かID確認）" });
+      return;
+    }
+
+    conn.on("chat", d => {
+      io.emit("ev", { t:"chat", u:d.nickname, m:d.comment });
+    });
+
+    conn.on("gift", d => {
+      io.emit("ev", {
+        t:"gift",
+        u:d.nickname,
+        g:d.giftName,
+        c:d.repeatCount || 1
+      });
+    });
+
+    conn.on("social", d => {
+      if(d.displayType.includes("follow")){
+        io.emit("ev", { t:"follow", u:d.nickname });
+      }
+    });
+
+    conn.on("roomUser", d => {
+      io.emit("view", d.viewerCount);
+    });
+
+    conn.on("disconnected", () => {
+      io.emit("ev", { t:"sys", m:"⚠️ 切断されました。再接続待機中…" });
+    });
+  }
+
+  socket.on("setTarget", id => connectTikTok(id));
+
+  socket.on("disconnect", () => {
+    if(conn){
+      try{ conn.disconnect(); }catch(e){}
+    }
+  });
 });
 
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log('Mac Talk PRO Server Live'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log("🚀 Mac Talk PRO 起動完了");
+});
