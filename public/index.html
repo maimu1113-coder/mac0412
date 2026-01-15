@@ -3,37 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TikFinity PRO Voice-Max</title>
+<title>Mac Talk PRO</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
 :root{--bg:#0b0e14;--side:#161920;--card:#1f232d;--accent:#00f2ea;--pink:#ff0050}
-body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden}
+body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden;touch-action:manipulation}
 
-/* TikFinity Sidebar */
-.sidebar{width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:40px;gap:30px;border-right:1px solid #2d323e}
-.side-icon{font-size:1.5rem;opacity:0.4;cursor:pointer;transition:0.3s}
+/* Sidebar */
+.sidebar{width:65px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:40px;gap:35px;border-right:1px solid #2d323e;z-index:20}
+.side-icon{font-size:1.8rem;opacity:0.4;cursor:pointer;padding:10px}
 .side-icon.active{opacity:1;filter:drop-shadow(0 0 5px var(--accent))}
 
-/* Main Container */
-.main-content{flex:1;display:flex;flex-direction:column;padding:20px;position:relative}
-
-/* Settings Overlay */
-#settingsOverlay{position:absolute;top:0;left:0;width:100%;height:100%;background:var(--bg);z-index:10;display:none;padding:20px;box-sizing:border-box;overflow-y:auto}
-.tab-content{display:none}
+/* Main */
+.main-content{flex:1;display:flex;flex-direction:column;padding:20px;position:relative;z-index:5}
+#settingsOverlay{position:absolute;top:0;left:0;width:100%;height:100%;background:var(--bg);z-index:100;display:none;padding:20px;box-sizing:border-box;overflow-y:auto}
+.tab-content{display:none;padding-bottom:100px}
 .tab-content.active{display:block}
 
-/* Card Style */
+/* Elements */
 .card{background:var(--card);border-radius:12px;padding:15px;margin-bottom:15px;border:1px solid #333}
-.label{font-size:0.7rem;color:var(--accent);text-transform:uppercase;margin-bottom:8px;display:block;font-weight:bold}
-input, select, textarea{width:100%;background:#0b0e14;border:1px solid #444;color:#fff;padding:12px;border-radius:8px;box-sizing:border-box}
+.label{font-size:0.75rem;color:var(--accent);text-transform:uppercase;margin-bottom:8px;display:block;font-weight:bold}
+input, select, textarea{width:100%;background:#0b0e14;border:1px solid #444;color:#fff;padding:15px;border-radius:8px;font-size:1rem;box-sizing:border-box}
 
-/* Event Log */
 #eventLog{flex:1;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:10px}
-.log-card{background:var(--card);padding:12px;border-radius:10px;font-size:0.85rem;border-left:4px solid #444;animation:slide 0.2s ease}
-@keyframes slide{from{transform:translateX(-10px);opacity:0}to{transform:translateX(0);opacity:1}}
+.log-card{background:var(--card);padding:12px;border-radius:10px;font-size:0.85rem;border-left:4px solid #444}
 
-.btn-apply{background:var(--accent);color:#000;border:none;padding:18px;width:100%;border-radius:12px;font-weight:bold;font-size:1rem;margin-top:10px}
-.btn-test{background:#333;color:#fff;border:none;padding:8px;border-radius:5px;font-size:0.7rem;margin-top:10px}
+.btn-main{background:var(--pink);color:#fff;border:none;padding:18px;width:100%;border-radius:12px;font-weight:bold;font-size:1rem;margin-bottom:10px;touch-action:none}
+.btn-save{background:var(--accent);color:#000;border:none;padding:18px;width:100%;border-radius:12px;font-weight:bold;font-size:1rem}
 </style>
 </head>
 <body>
@@ -47,55 +43,32 @@ input, select, textarea{width:100%;background:#0b0e14;border:1px solid #444;colo
 
 <div class="main-content">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
-        <div style="font-weight:900;font-size:1.4rem">Tik<span style="color:var(--pink)">Finity</span></div>
+        <div style="font-weight:900;font-size:1.4rem">Mac<span style="color:var(--accent)">Talk</span></div>
         <div style="background:#222;padding:5px 10px;border-radius:20px;font-size:0.7rem">LIVE: <span id="vCount">0</span></div>
     </div>
-
     <div id="eventLog"></div>
 
     <div id="settingsOverlay">
         <div style="display:flex;justify-content:space-between;margin-bottom:20px">
-            <h2 id="tabTitle">MAIN SETTINGS</h2>
-            <button onclick="toggleSettings()" style="background:none;border:none;color:#888;font-weight:bold">DONE</button>
+            <h2 id="tabTitle">SETTINGS</h2>
+            <button onclick="toggleSettings()" style="background:none;border:none;color:#888;font-size:1.2rem;padding:10px">CLOSE</button>
         </div>
 
         <div id="tab-main" class="tab-content active">
-            <div class="card">
-                <label class="label">TikTok Username</label>
-                <input type="text" id="targetId" placeholder="example: @lxxchipxxl">
-            </div>
-            <div class="card">
-                <label class="label">System Audio Control</label>
-                <button id="audioStartBtn" class="btn-apply" style="background:var(--pink);color:#fff">⚡ ACTIVATE AUDIO ENGINE</button>
-            </div>
-            <button class="btn-apply" onclick="applyAndConnect()">SAVE & CONNECT</button>
+            <div class="card"><label class="label">TikTok ID</label><input type="text" id="targetId"></div>
+            <button id="audioStartBtn" class="btn-main">ACTIVATE AUDIO</button>
+            <button class="btn-save" onclick="applyAndConnect()">SAVE & CONNECT</button>
         </div>
 
         <div id="tab-tts" class="tab-content">
-            <div class="card">
-                <label class="label">Voice Selection (多数の声から選択)</label>
-                <select id="voiceSelect"></select>
-                <button class="btn-test" onclick="speak('これはテスト音声です。どうですか？')">▶ 試し聞きする</button>
-            </div>
-            <div class="card">
-                <label class="label">Voice Pitch (声の高さ)</label>
-                <input type="range" id="v-pitch" min="0.5" max="2.0" step="0.1" value="1.0">
-            </div>
-            <div class="card">
-                <label class="label">Voice Speed (速さ)</label>
-                <input type="range" id="v-speed" min="0.5" max="2.0" step="0.1" value="1.2">
-            </div>
+            <div class="card"><label class="label">Voice Type</label><select id="voiceSelect"></select></div>
+            <div class="card"><label class="label">Pitch</label><input type="range" id="v-pitch" min="0.5" max="2.0" step="0.1" value="1.0"></div>
+            <div class="card"><label class="label">Speed</label><input type="range" id="v-speed" min="0.5" max="2.0" step="0.1" value="1.2"></div>
         </div>
 
         <div id="tab-events" class="tab-content">
-            <div class="card">
-                <label class="label">Follow Welcome Message</label>
-                <textarea id="m-follow">{user}さん、フォローありがとうございます！</textarea>
-            </div>
-            <div class="card">
-                <label class="label">Gift Thank-you Message</label>
-                <textarea id="m-gift">{user}さん、{gift}ありがとう！</textarea>
-            </div>
+            <div class="card"><label class="label">Follow Msg</label><textarea id="m-follow">{user}さんフォローありがとう！</textarea></div>
+            <div class="card"><label class="label">Gift Msg</label><textarea id="m-gift">{user}さん{gift}ありがとう！</textarea></div>
         </div>
     </div>
 </div>
@@ -106,22 +79,24 @@ input, select, textarea{width:100%;background:#0b0e14;border:1px solid #444;colo
 const socket=io();
 let engineOn=false, voices=[];
 
-// --- 声の読み込み ---
-function loadVoices(){
-    voices = window.speechSynthesis.getVoices().filter(v => v.lang.includes('ja') || v.lang.includes('JP'));
-    const select = document.getElementById('voiceSelect');
-    select.innerHTML = voices.map((v, i) => `<option value="${i}">${v.name}</option>`).join('');
-}
-window.speechSynthesis.onvoiceschanged = loadVoices;
-loadVoices();
+// 保存データの読み込み
+window.onload = () => {
+    const savedId = localStorage.getItem('mt_id');
+    if(savedId) document.getElementById('targetId').value = savedId;
+};
 
-// --- タブ切り替え ---
+function loadVoices(){
+    voices = window.speechSynthesis.getVoices().filter(v => v.lang.includes('ja'));
+    const s = document.getElementById('voiceSelect');
+    s.innerHTML = voices.map((v, i) => `<option value="${i}">${v.name}</option>`).join('');
+}
+window.speechSynthesis.onvoiceschanged = loadVoices; loadVoices();
+
 function showTab(name){
     document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
     document.querySelectorAll('.side-icon').forEach(i=>i.classList.remove('active'));
     document.getElementById('tab-'+name).classList.add('active');
     document.getElementById('i-'+name).classList.add('active');
-    document.getElementById('tabTitle').innerText = name.toUpperCase() + " SETTINGS";
 }
 
 function toggleSettings(){
@@ -129,30 +104,28 @@ function toggleSettings(){
     s.style.display = (s.style.display === 'block') ? 'none' : 'block';
 }
 
-// --- 音声エンジンの有効化 ---
-document.getElementById('audioStartBtn').onclick = function() {
+document.getElementById('audioStartBtn').addEventListener('click', function() {
     engineOn = true;
     this.style.background = "#333";
-    this.innerText = "AUDIO ENGINE RUNNING";
+    this.innerText = "AUDIO RUNNING";
     document.getElementById('pip').play();
-    speak("読み上げエンジンが正常に起動しました。");
-};
+    speak("マックトーク起動しました");
+});
 
 function applyAndConnect(){
-    const id = document.getElementById('targetId').value;
+    const id = document.getElementById('targetId').value.replace('@','');
     if(id) {
-        socket.emit('setTarget', id.replace('@',''));
+        localStorage.setItem('mt_id', id);
+        socket.emit('setTarget', id);
         toggleSettings();
-        addLog("System: " + id + " に接続試行中...", "#888");
     }
 }
 
-// --- イベント受信 ---
 socket.on('ev', e => {
     let msg = "";
-    if(e.t==='chat') { msg = e.u + "さん、" + e.m; addLog("💬 " + e.u + ": " + e.m, var(--accent)); }
-    if(e.t==='follow') { msg = document.getElementById('m-follow').value.replace('{user}', e.u); addLog("👤 " + e.u + " がフォロー！", "#ffeb3b"); }
-    if(e.t==='gift') { msg = document.getElementById('m-gift').value.replace('{user}',e.u).replace('{gift}',e.g); addLog("🎁 " + e.u + " から " + e.g, var(--pink)); }
+    if(e.t==='chat') { msg = e.u + "さん、" + e.m; addLog("💬 " + e.u + ": " + e.m, "var(--accent)"); }
+    if(e.t==='follow') { msg = document.getElementById('m-follow').value.replace('{user}', e.u); addLog("👤 " + e.u + " Follow!", "#ffeb3b"); }
+    if(e.t==='gift') { msg = document.getElementById('m-gift').value.replace('{user}',e.u).replace('{gift}',e.g); addLog("🎁 " + e.u + " Gift!", "var(--pink)"); }
     if(engineOn) speak(msg);
 });
 
@@ -164,10 +137,9 @@ function addLog(m, c){
     document.getElementById('eventLog').prepend(d);
 }
 
-// --- 読み上げ本体 ---
 function speak(t){
     if(!engineOn) return;
-    window.speechSynthesis.cancel(); // 前の音声を止めて最新を優先（TikFinity風）
+    window.speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(t);
     const vIdx = document.getElementById('voiceSelect').value;
     if(voices[vIdx]) u.voice = voices[vIdx];
