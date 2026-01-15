@@ -9,8 +9,6 @@
 :root{--bg:#0b0e14;--side:#161920;--card:#1f232d;--accent:#00f2ea;--pink:#ff0050}
 body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden}
 .sidebar{width:60px;min-width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:30px;gap:35px;border-right:1px solid #333}
-.side-btn{font-size:1.5rem;cursor:pointer;opacity:0.6;transition:0.2s}
-.side-btn:active{opacity:1;transform:scale(1.2)}
 .main{flex:1;display:flex;flex-direction:column;padding:15px;overflow:hidden}
 .card{background:var(--card);padding:15px;border-radius:12px;margin-bottom:10px;border:1px solid #444}
 input{width:100%;padding:15px;background:#000;border:1px solid #555;color:#fff;border-radius:8px;box-sizing:border-box;font-size:18px;margin-bottom:12px}
@@ -19,14 +17,14 @@ button{width:100%;padding:16px;border-radius:10px;border:none;font-weight:bold;m
 .btn-blue{background:var(--accent);color:#000}
 #log-area{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:10px;background:rgba(255,255,255,0.02);border-radius:8px}
 .log-item{background:var(--card);padding:12px;border-radius:8px;border-left:4px solid var(--accent);font-size:0.9rem;color:#fff}
+/* カウントダウン用の強調スタイル */
+.timer-text{color:var(--pink);font-weight:bold;font-variant-numeric: tabular-nums;}
 </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <div class="side-btn" onclick="location.reload()">🏠</div>
-    <div class="side-btn" onclick="checkMic()">🎤</div>
-    <div class="side-btn" onclick="showSettings()">⚙️</div>
+    <div class="side-btn" onclick="location.reload()" style="font-size:1.5rem;cursor:pointer">🏠</div>
 </div>
 
 <div class="main">
@@ -50,53 +48,70 @@ var isEngineOn = false;
 var queue = [];
 var isTalking = false;
 
-function addLog(msg) {
+// 時間計測用の変数
+var connectTimer = null;
+var secondsElapsed = 0;
+var currentLogElement = null;
+
+function addLog(msg, isUpdating = false) {
     var area = document.getElementById("log-area");
-    var d = document.createElement("div"); d.className = "log-item"; d.innerText = msg;
+    if (isUpdating && currentLogElement) {
+        currentLogElement.innerText = msg;
+        return currentLogElement;
+    }
+    var d = document.createElement("div");
+    d.className = "log-item";
+    d.innerText = msg;
     area.insertBefore(d, area.firstChild);
+    return d;
 }
 
-function checkMic() { addLog("🎤 読み上げ状態: " + (isEngineOn ? "有効" : "無効")); }
-function showSettings() { addLog("⚙️ 設定: 自動再接続・高優先度モード"); }
-
-// 1. 読み上げ有効化（ロゴ表示とバックグラウンド維持）
 function clickStart() {
     isEngineOn = true;
-    var audio = document.getElementById("silent-audio");
-    
-    // iPhoneに再生を強制認識させる
-    audio.play().then(function() {
-        addLog("✅ システム：音声エンジン起動（ロゴ確認可）");
-    });
-    
-    var ut = new SpeechSynthesisUtterance("マックトーク、読み上げを開始します。");
-    ut.lang = 'ja-JP';
-    window.speechSynthesis.speak(ut);
-
-    document.getElementById("b1").innerText = "読み上げ有効中";
-    document.getElementById("b1").style.opacity = "0.7";
+    document.getElementById("silent-audio").play();
+    var ut = new SpeechSynthesisUtterance("読み上げを開始しました");
+    ut.lang = 'ja-JP'; window.speechSynthesis.speak(ut);
+    addLog("✅ システム：音声エンジン起動");
 }
 
-// 2. 接続要求
 function clickConnect() {
     var id = document.getElementById("tid").value.replace("@", "").trim();
     if(!id) { alert("IDを入力してください"); return; }
-    addLog("⏳ 接続要求：TikTokへアクセス中...");
+    
+    // カウントアップ開始
+    secondsElapsed = 0;
+    if(connectTimer) clearInterval(connectTimer);
+    
+    currentLogElement = addLog("⏳ 接続を試行中... 0.0秒経過");
+    
+    connectTimer = setInterval(function() {
+        secondsElapsed += 0.1;
+        addLog("⏳ 接続を試行中... " + secondsElapsed.toFixed(1) + "秒経過", true);
+        
+        // 15秒以上かかっている場合は警告
+        if(secondsElapsed >= 15) {
+            addLog("⚠️ 接続に時間がかかっています。配信が開始されているか確認してください。", true);
+        }
+    }, 100);
+    
     socket.emit("setTarget", id);
     localStorage.setItem("mtid", id);
 }
 
 socket.on("ev", function(e) {
-    var l = "", s = "";
-    if(e.t === "chat") { l = "💬 " + e.u + ": " + e.m; s = e.u + "さん " + e.m; }
-    if(e.t === "follow") { l = "👤 " + e.u + " Follow!"; s = e.u + "さんフォローありがとう"; }
-    if(e.t === "gift") { l = "🎁 " + e.u + ": " + e.g + " x" + e.c; s = e.u + "さん" + e.g + "ありがとう"; }
-    if(e.t === "sys") { l = "📢 " + e.m; }
-    if(l) addLog(l);
+    // 接続成功または失敗のシステムログが来たらタイマーを止める
+    if(e.t === "sys") {
+        clearInterval(connectTimer);
+        addLog("📢 " + e.m + " (合計: " + secondsElapsed.toFixed(1) + "秒)");
+    }
+    
+    var s = "";
+    if(e.t === "chat") { s = e.u + "さん " + e.m; addLog("💬 " + e.u + ": " + e.m); }
+    if(e.t === "follow") { s = e.u + "さんフォローありがとう"; addLog("👤 " + e.u + " Follow!"); }
+    if(e.t === "gift") { s = e.u + "さん" + e.g + "ありがとう"; addLog("🎁 " + e.u + ": " + e.g + " x" + e.c); }
+
     if(s && isEngineOn) { queue.push(s); talk(); }
 });
-
-socket.on("up-v", function(c) { document.getElementById("vCount").innerText = c; });
 
 function talk() {
     if(!isEngineOn || isTalking || queue.length === 0) return;
