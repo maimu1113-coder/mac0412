@@ -8,10 +8,12 @@
 <style>
 :root{--bg:#0b0e14;--side:#161920;--card:#1f232d;--accent:#00f2ea;--pink:#ff0050}
 body{font-family:sans-serif;background:var(--bg);color:#fff;margin:0;display:flex;height:100vh;overflow:hidden}
-.sidebar{width:60px;min-width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:30px;gap:25px;border-right:1px solid #333}
+.sidebar{width:60px;min-width:60px;background:var(--side);display:flex;flex-direction:column;align-items:center;padding-top:30px;gap:35px;border-right:1px solid #333}
+.side-btn{font-size:1.5rem;cursor:pointer;opacity:0.6;transition:0.2s}
+.side-btn:active{opacity:1;transform:scale(1.2)}
 .main{flex:1;display:flex;flex-direction:column;padding:15px;overflow:hidden}
 .card{background:var(--card);padding:15px;border-radius:12px;margin-bottom:10px;border:1px solid #444}
-input{width:100%;padding:15px;background:#000;border:1px solid #555;color:#fff;border-radius:8px;box-sizing:border-box;font-size:18px;margin-bottom:10px}
+input{width:100%;padding:15px;background:#000;border:1px solid #555;color:#fff;border-radius:8px;box-sizing:border-box;font-size:18px;margin-bottom:12px}
 button{width:100%;padding:16px;border-radius:10px;border:none;font-weight:bold;margin-bottom:10px;font-size:16px}
 .btn-pink{background:var(--pink);color:#fff}
 .btn-blue{background:var(--accent);color:#000}
@@ -21,109 +23,84 @@ button{width:100%;padding:16px;border-radius:10px;border:none;font-weight:bold;m
 </head>
 <body>
 
-<div class="sidebar"><div style="font-size:1.5rem">🏠</div></div>
+<div class="sidebar">
+    <div class="side-btn" onclick="location.reload()">🏠</div>
+    <div class="side-btn" onclick="checkMic()">🎤</div>
+    <div class="side-btn" onclick="showSettings()">⚙️</div>
+</div>
 
 <div class="main">
     <div style="display:flex;justify-content:space-between;margin-bottom:10px">
         <h2 style="margin:0">Mac Talk <span style="color:var(--accent)">PRO</span></h2>
         <div style="background:#222;padding:4px 10px;border-radius:15px;font-size:0.8rem">👁️ <span id="vCount">0</span></div>
     </div>
-    
     <div class="card">
-        <input id="tid" placeholder="TikTok IDを入力">
-        <button class="btn-pink" onclick="handleStart()">1. 読み上げを有効にする</button>
-        <button class="btn-blue" onclick="handleConnect()">2. 保存してライブ接続</button>
+        <input id="tid" type="text" placeholder="TikTok ID (@なし)">
+        <button id="b1" class="btn-pink" onclick="clickStart()">1. 読み上げを有効にする</button>
+        <button id="b2" class="btn-blue" onclick="clickConnect()">2. 保存してライブ接続</button>
     </div>
-
-    <div id="log-area">
-        <div class="log-item">システム：待機中...</div>
-    </div>
+    <div id="log-area"><div class="log-item">ログ待機中...</div></div>
 </div>
 
-<audio id="bg-audio" loop playsinline style="display:none">
-    <source src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3" type="audio/mp3">
-</audio>
+<audio id="silent-audio" loop playsinline src="https://raw.githubusercontent.com/anars/blank-audio/master/10-seconds-of-silence.mp3"></audio>
 
 <script>
-const socket = io();
-let isEngineOn = false;
-let speechQueue = [];
-let isSpeaking = false;
-const logArea = document.getElementById("log-area");
+var socket = io();
+var isEngineOn = false;
+var queue = [];
+var isTalking = false;
 
-// 1. 読み上げ有効化ボタン
-function handleStart() {
-    isEngineOn = true;
-    const audio = document.getElementById("bg-audio");
-    
-    // 無音音声を再生（これでコントロールセンターにロゴが出ます）
-    audio.play().then(() => {
-        addLog("✅ システム：バックグラウンド音声開始");
-    }).catch(e => {
-        addLog("❌ エラー：ブラウザが音声をブロックしました");
-    });
-
-    const msg = new SpeechSynthesisUtterance("マックトーク、準備完了しました");
-    msg.lang = 'ja-JP';
-    window.speechSynthesis.speak(msg);
+function addLog(msg) {
+    var area = document.getElementById("log-area");
+    var d = document.createElement("div"); d.className = "log-item"; d.innerText = msg;
+    area.insertBefore(d, area.firstChild);
 }
 
-// 2. 接続ボタン
-function handleConnect() {
-    const id = document.getElementById("tid").value.trim();
-    if (!id) {
-        alert("IDを入力してください");
-        return;
-    }
-    
-    addLog(`⏳ システム：${id} に接続を要求中...`);
+// サイドボタンの関数
+function checkMic() { addLog("🎤 読み上げ状態: " + (isEngineOn ? "有効" : "無効")); }
+function showSettings() { addLog("⚙️ 設定: 自動再接続・日本語音声"); }
+
+function clickStart() {
+    isEngineOn = true;
+    document.getElementById("silent-audio").play();
+    var ut = new SpeechSynthesisUtterance("読み上げを開始します");
+    ut.lang = 'ja-JP'; window.speechSynthesis.speak(ut);
+    addLog("✅ システム：音声エンジン起動");
+}
+
+function clickConnect() {
+    var id = document.getElementById("tid").value.replace("@", "").trim();
+    if(!id) { alert("IDを入力してください"); return; }
+    addLog("⏳ 接続要求：TikTokへアクセス中...");
     socket.emit("setTarget", id);
     localStorage.setItem("mtid", id);
 }
 
-window.onload = () => {
-    const saved = localStorage.getItem("mtid");
-    if(saved) document.getElementById("tid").value = saved;
-};
-
-// サーバーからのイベント受信を強化
-socket.on("ev", e => {
-    console.log("Recieved:", e); // デバッグ用
-    let l = "";
-    let s = "";
-
-    if(e.t === "chat") { l = `💬 ${e.u}: ${e.m}`; s = `${e.u}さん、${e.m}`; }
-    if(e.t === "follow") { l = `👤 ${e.u} がフォロー！`; s = `${e.u}さんフォローありがとう`; }
-    if(e.t === "gift") { l = `🎁 ${e.u}: ${e.g} x${e.c}`; s = `${e.u}さん${e.g}ありがとう`; }
-    if(e.t === "sys") { l = `📢 ${e.m}`; }
-
+socket.on("ev", function(e) {
+    var l = "", s = "";
+    if(e.t === "chat") { l = "💬 " + e.u + ": " + e.m; s = e.u + "さん " + e.m; }
+    if(e.t === "follow") { l = "👤 " + e.u + " Follow!"; s = e.u + "さんフォローありがとう"; }
+    if(e.t === "gift") { l = "🎁 " + e.u + ": " + e.g + " x" + e.c; s = e.u + "さん" + e.g + "ありがとう"; }
+    if(e.t === "sys") { l = "📢 " + e.m; }
     if(l) addLog(l);
-    if(s && isEngineOn) {
-        speechQueue.push(s);
-        processSpeech();
-    }
+    if(s && isEngineOn) { queue.push(s); talk(); }
 });
 
-socket.on("up-v", c => {
-    document.getElementById("vCount").innerText = c;
-});
+socket.on("up-v", function(c) { document.getElementById("vCount").innerText = c; });
 
-function processSpeech() {
-    if(!isEngineOn || isSpeaking || speechQueue.length === 0) return;
-    isSpeaking = true;
-    const u = new SpeechSynthesisUtterance(speechQueue.shift());
-    u.lang = 'ja-JP';
-    u.rate = 1.2;
-    u.onend = () => { isSpeaking = false; processSpeech(); };
+function talk() {
+    if(!isEngineOn || isTalking || queue.length === 0) return;
+    isTalking = true;
+    var u = new SpeechSynthesisUtterance(queue.shift());
+    u.lang = 'ja-JP'; u.rate = 1.2;
+    u.onend = function() { isTalking = false; talk(); };
     window.speechSynthesis.speak(u);
 }
 
-function addLog(msg) {
-    const div = document.createElement("div");
-    div.className = "log-item";
-    div.innerText = msg;
-    logArea.insertBefore(div, logArea.firstChild);
-}
+window.onload = function() {
+    var saved = localStorage.getItem("mtid");
+    if(saved) document.getElementById("tid").value = saved;
+};
 </script>
 </body>
 </html>
