@@ -1,250 +1,321 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-<title>Mac Talk PRO</title>
-<script src="/socket.io/socket.io.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mac Talk PRO Mobile</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d0d0f;
+            --card-bg: #1a1a1e;
+            --accent-color: #ff0050;
+            --text-main: #ffffff;
+            --text-sub: #a0a0a0;
+        }
 
-<style>
-:root{
-  --bg:#0b0e14;
-  --side:#161920;
-  --card:#1f232d;
-  --accent:#00f2ea;
-  --pink:#ff0050;
-}
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
 
-body{
-  margin:0;
-  height:100vh;
-  display:flex;
-  background:var(--bg);
-  color:#fff;
-  font-family:sans-serif;
-  overflow:hidden;
-}
+        /* ヘッダーエリア */
+        .header {
+            width: 100%;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+        }
 
-/* ===== サイドバー ===== */
-.sidebar{
-  width:60px;
-  background:var(--side);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding-top:30px;
-  gap:35px;
-}
+        /* アニメーションリング */
+        .status-container {
+            margin-top: 40px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 120px;
+            height: 120px;
+        }
 
-.side-btn{
-  font-size:1.5rem;
-  opacity:.6;
-  cursor:pointer;
-}
+        .ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 4px solid #333;
+            border-radius: 50%;
+        }
 
-/* ===== メイン ===== */
-.main{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  padding:12px;
-  gap:10px;
-  overflow:hidden;
-}
+        .ring-active {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 4px solid var(--accent-color);
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 2s linear infinite;
+        }
 
-/* ===== ヘッダー ===== */
-.header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-}
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
 
-.header h2{
-  margin:0;
-}
+        .visualizer {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
 
-.live-info{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  font-size:0.8rem;
-}
+        .bar {
+            width: 3px;
+            height: 20px;
+            background: var(--text-main);
+            animation: pulse 1.2s ease-in-out infinite;
+        }
 
-.badge{
-  background:red;
-  padding:2px 6px;
-  border-radius:6px;
-  font-size:0.7rem;
-}
+        @keyframes pulse {
+            0%, 100% { height: 10px; }
+            50% { height: 30px; }
+        }
 
-/* ===== 配信者情報 ===== */
-#streamer{
-  display:none;
-  align-items:center;
-  gap:10px;
-  background:var(--card);
-  padding:10px;
-  border-radius:12px;
-}
+        /* メインタイトル */
+        .title-area {
+            text-align: center;
+            margin: 30px 20px;
+        }
 
-#streamer img{
-  width:48px;
-  height:48px;
-  border-radius:50%;
-  object-fit:cover;
-  background:#000;
-}
+        .title-area h1 {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
 
-.stats{
-  display:flex;
-  gap:12px;
-  font-size:0.75rem;
-  opacity:.9;
-}
+        /* ステップリスト */
+        .step-list {
+            width: 90%;
+            max-width: 400px;
+        }
 
-/* ===== 入力カード ===== */
-.card{
-  background:var(--card);
-  border-radius:12px;
-  padding:14px;
-}
+        .step-item {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
 
-input{
-  width:100%;
-  box-sizing:border-box;
-  padding:14px;
-  font-size:16px;
-  border-radius:8px;
-  background:#000;
-  border:1px solid #555;
-  color:#fff;
-  margin-bottom:10px;
-}
+        .step-num {
+            background: #333;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
 
-button{
-  width:100%;
-  padding:14px;
-  border:none;
-  border-radius:10px;
-  font-weight:bold;
-  margin-bottom:8px;
-  cursor:pointer;
-}
+        .step-content h3 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+        }
 
-.btn-pink{ background:var(--pink); color:#fff; }
-.btn-blue{ background:var(--accent); color:#000; }
+        .step-content p {
+            margin: 0;
+            font-size: 14px;
+            color: var(--text-sub);
+            line-height: 1.4;
+        }
 
-/* ===== ログ ===== */
-#log-area{
-  flex:1;
-  overflow-y:auto;
-  background:rgba(255,255,255,0.03);
-  border-radius:12px;
-  padding:10px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
+        /* ログエリア（半透明で邪魔しない） */
+        #log {
+            width: 90%;
+            height: 100px;
+            background: rgba(255,255,255,0.05);
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            overflow-y: auto;
+            color: #888;
+        }
 
-.log-item{
-  background:var(--card);
-  padding:10px;
-  border-radius:8px;
-  border-left:4px solid var(--accent);
-  font-size:0.85rem;
-}
-</style>
+        /* フッターボタン */
+        .footer {
+            margin-top: auto;
+            padding-bottom: 40px;
+        }
+
+        .end-button {
+            color: #ff9f0a;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        /* 入力エリア */
+        .input-box {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 15px;
+            width: 85%;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            background: transparent;
+            border: none;
+            color: white;
+            flex-grow: 1;
+            font-size: 16px;
+        }
+
+        button.conn-btn {
+            background: var(--accent-color);
+            border: none;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+    </style>
 </head>
-
 <body>
 
-<div class="sidebar">
-  <div class="side-btn">🏠</div>
-  <div class="side-btn">🎤</div>
-  <div class="side-btn">⚙️</div>
-</div>
-
-<div class="main">
-
-  <!-- ヘッダー -->
-  <div class="header">
-    <h2>Mac Talk <span style="color:var(--accent)">PRO</span></h2>
-    <div class="live-info">
-      <span class="badge">LIVE</span>
-      👥 <span id="followers">0</span>
-      ❤️ <span id="likes">0</span>
+    <div class="header">
+        <div id="view-count" style="color:var(--text-sub)">👀 0</div>
+        <div id="audio-status" onclick="startAudio()" style="cursor:pointer">🔇 Tap to Start</div>
     </div>
-  </div>
 
-  <!-- 配信者 -->
-  <div id="streamer">
-    <img id="avatar">
-    <div>
-      <div><strong id="name"></strong></div>
-      <div class="stats">
-        <div>👥 <span id="followers2">0</span></div>
-        <div>❤️ <span id="likes2">0</span></div>
-      </div>
+    <div class="input-box">
+        <input type="text" id="targetId" placeholder="TikTok IDを入力">
+        <button class="conn-btn" onclick="connect()">接続</button>
     </div>
-  </div>
 
-  <!-- 入力 -->
-  <div class="card">
-    <input id="tid" placeholder="TikTok ID（@なし）">
-    <button class="btn-pink" onclick="voiceOn=true">1. 読み上げON</button>
-    <button class="btn-blue" onclick="connect()">2. 接続</button>
-  </div>
+    <div class="status-container">
+        <div class="ring"></div>
+        <div class="ring-active" id="ring-active" style="display:none"></div>
+        <div class="visualizer">
+            <div class="bar" style="animation-delay: 0s"></div>
+            <div class="bar" style="animation-delay: 0.2s"></div>
+            <div class="bar" style="animation-delay: 0.4s"></div>
+        </div>
+    </div>
 
-  <!-- ログ -->
-  <div id="log-area">
-    <div class="log-item">ログ待機中…</div>
-  </div>
+    <div class="title-area">
+        <h1 id="status-text">TikTokライブを待っています</h1>
+    </div>
 
-</div>
+    <div class="step-list">
+        <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h3>TikTokライブを始めましょう</h3>
+                <p>準備ができたらTikTokアプリでライブ配信を開始してください。</p>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h3>バックグラウンドで維持</h3>
+                <p>この画面を開いたまま、またはバックグラウンドで読み上げを継続します。</p>
+            </div>
+        </div>
+        <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h3>TTSと通知アラート</h3>
+                <p>コメントやギフトが自動的に読み上げられます。お楽しみください。</p>
+            </div>
+        </div>
+    </div>
 
-<script>
-const socket = io();
-let voiceOn=false;
+    <div id="log"></div>
 
-function log(m){
-  const d=document.createElement("div");
-  d.className="log-item";
-  d.innerText=m;
-  document.getElementById("log-area").prepend(d);
-}
+    <div class="footer">
+        <a href="#" class="end-button" onclick="location.reload()">終了モード</a>
+    </div>
 
-function connect(){
-  const id=document.getElementById("tid").value.trim();
-  if(!id) return alert("IDを入力してください");
-  socket.emit("setTarget", id.replace("@",""));
-  log("⏳ 接続中…");
-}
+    <audio id="silent-audio" loop>
+        <source src="https://raw.githubusercontent.com/anars/blank-audio/master/250-milliseconds-of-silence.mp3" type="audio/mp3">
+    </audio>
 
-socket.on("streamer", d=>{
-  document.getElementById("streamer").style.display="flex";
-  avatar.src=d.avatar;
-  name.innerText=d.nickname+" (@"+d.uniqueId+")";
-  followers.innerText=d.followers;
-  followers2.innerText=d.followers;
-  likes.innerText=d.likes;
-  likes2.innerText=d.likes;
-  log("✅ TikTok接続成功！");
-});
+    <script>
+        const socket = io();
+        const msgQueue = [];
+        let isSpeaking = false;
 
-socket.on("up-follow", n=>{
-  followers.innerText=n;
-  followers2.innerText=n;
-});
+        // localStorageからID復元
+        const savedId = localStorage.getItem("tiktokId");
+        if(savedId) document.getElementById("targetId").value = savedId;
 
-socket.on("up-like", n=>{
-  likes.innerText=n;
-  likes2.innerText=n;
-});
+        function startAudio() {
+            document.getElementById("silent-audio").play();
+            document.getElementById("audio-status").innerText = "🔊 Audio ON";
+            document.getElementById("audio-status").style.color = "#34c759";
+        }
 
-socket.on("ev", e=>{
-  if(e.t==="chat") log("💬 "+e.u+"："+e.m);
-});
-</script>
+        function connect() {
+            const id = document.getElementById("targetId").value;
+            if(!id) return;
+            localStorage.setItem("tiktokId", id);
+            socket.emit("setTarget", id);
+            addLog("system", "接続を試行中...");
+            document.getElementById("ring-active").style.display = "block";
+        }
 
+        socket.on("ev", d => {
+            if(d.t === "sys") {
+                addLog("system", d.m);
+                document.getElementById("status-text").innerText = d.m;
+                return;
+            }
+            
+            let text = "";
+            if(d.t === "chat") text = `${d.u}さん：${d.m}`;
+            if(d.t === "follow") text = `${d.u}さんがフォローしました`;
+            if(d.t === "gift") text = `${d.u}さんが${d.g}を${d.c}個贈りました`;
+
+            addLog(d.t, text);
+            msgQueue.push(text);
+            processQueue();
+        });
+
+        socket.on("up-view", count => {
+            document.getElementById("view-count").innerText = `👀 ${count}`;
+        });
+
+        function addLog(type, msg) {
+            const log = document.getElementById("log");
+            const div = document.createElement("div");
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            log.prepend(div);
+        }
+
+        function processQueue() {
+            if (isSpeaking || msgQueue.length === 0) return;
+            isSpeaking = true;
+            const msg = msgQueue.shift();
+            const uttr = new SpeechSynthesisUtterance(msg);
+            uttr.lang = "ja-JP";
+            uttr.onend = () => {
+                isSpeaking = false;
+                processQueue();
+            };
+            window.speechSynthesis.speak(uttr);
+        }
+    </script>
 </body>
 </html>
